@@ -1,0 +1,105 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# AI Integration Guidelines
+
+Everly's AI functionality is a core feature that provides personalized experiences by analyzing user content.
+
+## AI Services Structure
+
+- Implement AI services in the `app/services/ai/` directory
+- Separate AI models and inference logic from the API layer
+- Use async clients for AI service communication
+
+## Model Integration
+
+- Keep AI models in a separate service or use cloud providers (OpenAI, etc.)
+- Abstract model interfaces to allow for easy swapping
+- Consider using a model registry for versioning
+
+## Content Analysis
+
+- Process diary entries for sentiment analysis and entity extraction
+- Analyze user travel patterns for personalized recommendations
+- Extract topics and themes from user content
+
+## Caching Strategy
+
+- Cache AI analysis results in Redis
+- Define appropriate TTL based on content volatility
+- Implement background refreshing for frequently accessed data
+
+## User Personalization
+
+- Build and maintain user profiles based on content analysis
+- Create embeddings for semantic search of user content
+- Generate personalized recommendations based on historical data
+
+```python
+async def analyze_diary_entry(entry_id: str) -> Dict[str, Any]:
+    """Analyze a diary entry for sentiment, topics, and entities.
+    
+    Args:
+        entry_id: The ID of the diary entry to analyze
+        
+    Returns:
+        Dictionary with analysis results
+    """
+    # Fetch the entry content
+    entry = await get_diary_entry(entry_id)
+    
+    # Check cache first
+    cache_key = f"diary_analysis:{entry_id}"
+    cached_result = await redis.get(cache_key)
+    if cached_result:
+        return json.loads(cached_result)
+    
+    # Perform analysis in parallel
+    sentiment_task = analyze_sentiment(entry.content)
+    topics_task = extract_topics(entry.content)
+    entities_task = extract_entities(entry.content)
+    
+    sentiment, topics, entities = await asyncio.gather(
+        sentiment_task, topics_task, entities_task
+    )
+    
+    # Combine results
+    result = {
+        "sentiment": sentiment,
+        "topics": topics,
+        "entities": entities,
+        "analyzed_at": datetime.datetime.utcnow().isoformat()
+    }
+    
+    # Cache the result
+    await redis.set(
+        cache_key, 
+        json.dumps(result), 
+        ex=3600  # 1 hour TTL
+    )
+    
+    return result
+```
+
+## Privacy and Data Handling
+
+- Process sensitive data on-device when possible
+- Get explicit user consent for cloud processing
+- Allow users to opt out of AI features
+- Implement data retention policies
+
+## Performance Considerations
+
+- Run non-critical AI processing in background tasks
+- Implement feature flags for heavy AI features
+- Monitor AI service performance and costs
+- Implement fallbacks for AI service outages
+
+## Batch Processing
+
+- Implement batch processing for historical data analysis
+- Schedule periodic updates of user profiles
+- Use worker queues for long-running AI tasks
+

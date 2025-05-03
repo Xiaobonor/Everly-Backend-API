@@ -1,0 +1,109 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Infrastructure and Deployment Guidelines
+
+## Environment Configuration
+
+- Use environment variables for all configuration
+- Store environment variables in a `.env` file locally
+- Never commit `.env` files to the repository
+- Provide a `.env.example` file with dummy values
+
+## Database Setup
+
+- MongoDB: Primary database for user data and content
+  - Use MongoDB Atlas for production
+  - Use authentication with strong passwords
+  - Enable network restrictions
+  
+- Redis: Caching and temporary data storage
+  - Cache AI processing results
+  - Store session data
+  - Configure appropriate eviction policies
+
+## Containerization
+
+- Use Docker for containerization
+- Keep Dockerfile in the project root
+- Use multi-stage builds for smaller images
+- Include necessary metadata labels
+
+```dockerfile
+FROM python:3.9-slim AS builder
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+FROM python:3.9-slim
+
+WORKDIR /app
+COPY --from=builder /app/wheels /wheels
+COPY --from=builder /app/requirements.txt .
+RUN pip install --no-cache /wheels/*
+
+COPY . .
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+## Deployment
+
+- Use Kubernetes for orchestration
+- Define all resources in YAML files
+- Store Kubernetes manifests in `k8s/` directory
+- Use Helm charts for complex deployments
+
+## CI/CD Pipeline
+
+- Use GitHub Actions for CI/CD
+- Automate testing, building, and deployment
+- Run security scans on dependencies
+- Use environment promotion (dev → staging → production)
+
+## Monitoring and Logging
+
+- Implement structured logging with JSON format
+- Use OpenTelemetry for distributed tracing
+- Monitor API performance metrics
+- Set up alerting for critical failures
+
+## Scaling
+
+- Design services to scale horizontally
+- Use autoscaling based on CPU/memory usage
+- Implement database sharding strategy for large datasets
+- Consider serverless options for variable workloads
+
+## Security
+
+- Enable HTTPS for all endpoints
+- Implement rate limiting
+- Use secure headers
+- Regularly update dependencies
+- Run security scans on container images
+
+## Backup and Recovery
+
+- Implement automated database backups
+- Store backups in a separate location
+- Test restoration procedures regularly
+- Define recovery point objectives (RPO)
+
+## Cost Optimization
+
+- Monitor resource usage
+- Implement auto-scaling down during low-traffic periods
+- Use spot instances where applicable
+- Optimize database queries for cost
+
+## Disaster Recovery
+
+- Document disaster recovery procedures
+- Implement cross-region replication
+- Define recovery time objectives (RTO)
+- Run regular disaster recovery drills

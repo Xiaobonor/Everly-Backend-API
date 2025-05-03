@@ -1,0 +1,86 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Documentation and Updates Guidelines
+
+Everly requires consistent documentation and Cursor rules updates to ensure all team members have the latest information.
+
+## Documentation Format
+
+- Keep technical documentation in Markdown format
+- Store documentation in the `docs/` directory
+- Separate documentation by domain (API, Database, AI, etc.)
+- Include version information and last updated date in each document
+
+## Documentation Content
+
+- API documentation
+  - Endpoint definitions
+  - Request/response schemas
+  - Authentication requirements
+  - Example requests and responses
+  
+- Database schema documentation
+  - Collection definitions
+  - Field descriptions
+  - Indexes and performance considerations
+  
+- Architecture documentation
+  - Component diagrams
+  - Deployment architecture
+  - Integration points
+  
+- Development guidelines
+  - Setup instructions
+  - Development workflow
+  - Testing procedures
+
+## Cursor Rules Updates
+
+- Update Cursor rules when:
+  - New features are added
+  - API endpoints change
+  - Database models are modified
+  - Project structure is altered
+  
+- Keep rules concise and focused on structural information
+- Reference specific files when applicable
+
+## Release Documentation
+
+- Maintain a `CHANGELOG.md` in the project root
+- Use semantic versioning format
+- Document all changes, including:
+  - New features
+  - Bug fixes
+  - Performance improvements
+  - Breaking changes
+  
+- Include migration instructions for breaking changes
+
+## Frontend Integration Documentation
+
+- Create integration documents for frontend developers
+- Include:
+  - API endpoint documentation
+  - Authentication flow
+  - Data models and schemas
+  - Example integration code
+  
+- Store frontend integration docs in `docs/frontend/`
+- Update integration documentation with each API change
+
+## Automated Documentation
+
+- Use tools to generate API documentation (FastAPI OpenAPI)
+- Consider automating Cursor rules updates based on changes
+- Set up CI/CD to verify documentation accuracy
+
+## Documentation Review
+
+- Review documentation as part of code review process
+- Validate example code works as expected
+- Check accuracy of API endpoint descriptions
+- Ensure changes are reflected in integration guides
