@@ -1,70 +1,79 @@
-# Everly API Documentation
+# Everly API - Frontend Developer Guide
 
-## Overview
+## Introduction
 
-Everly is a personal diary and travel journal application that allows users to record, organize, and analyze their thoughts, experiences, and memories. This document provides technical guidance for frontend developers who will be integrating with the Everly backend API.
+This document provides a comprehensive guide for frontend developers who need to integrate with the Everly backend API. It covers authentication, available endpoints, request/response formats, and implementation guidelines.
 
-## Technical Architecture
+## Authentication
 
-Everly's backend is built with FastAPI, a modern, high-performance web framework for building APIs with Python. The application uses MongoDB for data storage and Redis for caching and session management. The backend follows a modular architecture with clear separation of concerns.
+Everly uses JWT (JSON Web Tokens) for API authentication after initial authentication through Google OAuth.
 
-### Key Components:
+### Google OAuth Authentication Flow
 
-- **FastAPI Framework**: Handles HTTP requests, routing, and response serialization
-- **MongoDB**: Document database for storing user profiles and diary entries
-- **Redis**: Caching and session management
-- **JWT Authentication**: Secures API endpoints with token-based authentication
-- **Google OAuth**: Provides social login capabilities
+1. **Frontend Initiates Login**:
+   - Direct the user to Google's OAuth authorization page
+   - Include your client ID, redirect URI, and requested scopes
 
-## API Endpoints
+2. **User Authenticates with Google**:
+   - User grants permission to your application
 
-All API endpoints are prefixed with `/api/v1`. The API is versioned to ensure backward compatibility as the application evolves.
+3. **Google Redirects Back**:
+   - Google redirects to your redirect URI with an authorization code
 
-### Authentication
+4. **Frontend Exchanges Code for Token**:
+   - Frontend exchanges the authorization code for a Google access token
+   - This step is handled on the client side using Google OAuth libraries
 
-#### Google OAuth Authentication
+5. **Frontend Sends Token to Backend**:
+   - Send the Google access token to `/api/v1/auth/google`
+   - Backend verifies the token with Google and retrieves user info
+   - Backend creates or updates the user record
+   - Backend generates a JWT token and returns it to the frontend
 
-```
-POST /api/v1/auth/google
-```
+6. **Frontend Stores JWT Token**:
+   - Store the JWT token securely
+   - Include it in the Authorization header for authenticated requests
 
-**Request Body:**
+### Authentication Endpoint
+
+**POST /api/v1/auth/google**
+
+Authenticates a user using a Google OAuth token.
+
+Request:
 ```json
 {
-  "code": "google-authorization-code"
+  "token": "google-oauth-access-token"
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
   "status": "success",
   "data": {
-    "access_token": "jwt-token",
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "bearer"
   },
   "message": "Authentication successful"
 }
 ```
 
-**Implementation Notes:**
-- Frontend should implement Google OAuth 2.0 flow
-- After receiving the authorization code from Google, send it to this endpoint
-- Store the returned JWT token securely (localStorage or httpOnly cookies)
-- Include the token in the Authorization header for subsequent requests
+### Using JWT for Authenticated Requests
 
-#### Get Current User Profile
+For all authenticated API endpoints, include the JWT token in the Authorization header:
 
 ```
-GET /api/v1/auth/me
+Authorization: Bearer [jwt-token]
 ```
 
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
+### Get Current User
 
-**Response:**
+**GET /api/v1/auth/me**
+
+Returns information about the currently authenticated user.
+
+Response:
 ```json
 {
   "id": "user-id",
@@ -72,281 +81,367 @@ Authorization: Bearer {jwt-token}
   "full_name": "User Name",
   "profile_picture": "https://example.com/profile.jpg",
   "is_active": true,
-  "created_at": "2023-01-01T00:00:00Z",
-  "preferences": ["theme:dark", "language:en"]
-}
-```
-
-### User Management
-
-#### Get User Profile
-
-```
-GET /api/v1/users/me
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Response:** Same as `/api/v1/auth/me`
-
-#### Update User Profile
-
-```
-PUT /api/v1/users/me
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Request Body:**
-```json
-{
-  "full_name": "New Name",
-  "profile_picture": "https://example.com/new-profile.jpg"
-}
-```
-
-**Response:**
-```json
-{
-  "id": "user-id",
-  "email": "user@example.com",
-  "full_name": "New Name",
-  "profile_picture": "https://example.com/new-profile.jpg",
-  "is_active": true,
-  "created_at": "2023-01-01T00:00:00Z",
-  "preferences": ["theme:dark", "language:en"]
-}
-```
-
-#### Get User Preferences
-
-```
-GET /api/v1/users/me/preferences
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Response:**
-```json
-["theme:dark", "language:en"]
-```
-
-#### Update User Preferences
-
-```
-PUT /api/v1/users/me/preferences
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Request Body:**
-```json
-["theme:light", "language:en", "notifications:enabled"]
-```
-
-**Response:**
-```json
-["theme:light", "language:en", "notifications:enabled"]
-```
-
-### Diary Entries
-
-#### Create Diary Entry
-
-```
-POST /api/v1/diaries
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Request Body:**
-```json
-{
-  "title": "My Day in Paris",
-  "content": "Today I visited the Eiffel Tower and it was amazing...",
-  "content_type": "text",
-  "location": [48.8584, 2.2945],
-  "location_name": "Paris, France",
-  "tags": ["travel", "europe", "paris"],
-  "media_content": [
+  "created_at": "2025-01-01T00:00:00Z",
+  "preferences": [
     {
-      "url": "https://example.com/image1.jpg",
-      "content_type": "image",
-      "thumbnail_url": "https://example.com/thumbnail1.jpg",
-      "description": "View from the top"
+      "key": "theme",
+      "value": "dark"
     }
   ]
 }
 ```
 
-**Response:**
+## Diaries
+
+### List Diaries
+
+**GET /api/v1/diaries**
+
+Returns a list of all diaries for the authenticated user.
+
+Response:
 ```json
 {
-  "id": "entry-id",
-  "user": "user-id",
-  "title": "My Day in Paris",
-  "content": "Today I visited the Eiffel Tower and it was amazing...",
-  "content_type": "text",
-  "location": [48.8584, 2.2945],
-  "location_name": "Paris, France",
-  "tags": ["travel", "europe", "paris"],
-  "media_content": [
+  "status": "success",
+  "data": [
     {
-      "url": "https://example.com/image1.jpg",
-      "content_type": "image",
-      "thumbnail_url": "https://example.com/thumbnail1.jpg",
-      "description": "View from the top",
-      "created_at": "2023-01-01T12:00:00Z"
+      "id": "diary-id-1",
+      "title": "My Travel Journal",
+      "description": "Documenting my travels",
+      "cover_image": "https://example.com/cover1.jpg",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-02T00:00:00Z",
+      "entry_count": 12
+    },
+    {
+      "id": "diary-id-2",
+      "title": "Daily Thoughts",
+      "description": "My daily journal",
+      "cover_image": null,
+      "created_at": "2025-02-01T00:00:00Z",
+      "updated_at": "2025-02-05T00:00:00Z",
+      "entry_count": 5
     }
   ],
-  "sentiment_score": 0.87,
-  "topics": ["travel", "sightseeing"],
-  "entities": ["Eiffel Tower", "Paris"],
-  "created_at": "2023-01-01T12:00:00Z",
-  "updated_at": "2023-01-01T12:00:00Z"
+  "message": "Diaries retrieved successfully"
 }
 ```
 
-#### Get Diary Entries (Paginated)
+### Create Diary
 
-```
-GET /api/v1/diaries?page=1&limit=10
-```
+**POST /api/v1/diaries**
 
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
+Creates a new diary.
 
-**Response:**
+Request:
 ```json
 {
-  "items": [
-    {
-      "id": "entry-id-1",
-      "user": "user-id",
-      "title": "My Day in Paris",
-      "content": "Today I visited the Eiffel Tower and it was amazing...",
-      "content_type": "text",
-      "location": [48.8584, 2.2945],
-      "location_name": "Paris, France",
-      "tags": ["travel", "europe", "paris"],
-      "media_content": [
-        {
-          "url": "https://example.com/image1.jpg",
-          "content_type": "image",
-          "thumbnail_url": "https://example.com/thumbnail1.jpg",
-          "description": "View from the top",
-          "created_at": "2023-01-01T12:00:00Z"
-        }
-      ],
-      "sentiment_score": 0.87,
-      "topics": ["travel", "sightseeing"],
-      "entities": ["Eiffel Tower", "Paris"],
-      "created_at": "2023-01-01T12:00:00Z",
-      "updated_at": "2023-01-01T12:00:00Z"
+  "title": "My Travel Journal",
+  "description": "Documenting my travels",
+  "cover_image": "https://example.com/cover1.jpg"
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "new-diary-id",
+    "title": "My Travel Journal",
+    "description": "Documenting my travels",
+    "cover_image": "https://example.com/cover1.jpg",
+    "created_at": "2025-05-01T00:00:00Z",
+    "updated_at": "2025-05-01T00:00:00Z",
+    "entry_count": 0
+  },
+  "message": "Diary created successfully"
+}
+```
+
+### Get Diary
+
+**GET /api/v1/diaries/{diary_id}**
+
+Returns details for a specific diary.
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "diary-id",
+    "title": "My Travel Journal",
+    "description": "Documenting my travels",
+    "cover_image": "https://example.com/cover1.jpg",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-02T00:00:00Z",
+    "entry_count": 12
+  },
+  "message": "Diary retrieved successfully"
+}
+```
+
+### Update Diary
+
+**PUT /api/v1/diaries/{diary_id}**
+
+Updates a diary.
+
+Request:
+```json
+{
+  "title": "Updated Travel Journal",
+  "description": "New description",
+  "cover_image": "https://example.com/newcover.jpg"
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "diary-id",
+    "title": "Updated Travel Journal",
+    "description": "New description",
+    "cover_image": "https://example.com/newcover.jpg",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-05-05T00:00:00Z",
+    "entry_count": 12
+  },
+  "message": "Diary updated successfully"
+}
+```
+
+### Delete Diary
+
+**DELETE /api/v1/diaries/{diary_id}**
+
+Deletes a diary and all its entries.
+
+Response:
+```json
+{
+  "status": "success",
+  "data": null,
+  "message": "Diary deleted successfully"
+}
+```
+
+## Diary Entries
+
+### List Entries
+
+**GET /api/v1/diaries/{diary_id}/entries**
+
+Returns a list of entries for a specific diary.
+
+Parameters:
+- `page` (optional): Page number, default 1
+- `limit` (optional): Number of entries per page, default 10
+- `sort` (optional): Sort order, either "asc" or "desc", default "desc"
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "entries": [
+      {
+        "id": "entry-id-1",
+        "title": "Day 1 in Paris",
+        "content": "Today I visited the Eiffel Tower...",
+        "content_type": "text",
+        "location": {
+          "name": "Paris, France",
+          "lat": 48.8566,
+          "lng": 2.3522
+        },
+        "media": [],
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z"
+      },
+      {
+        "id": "entry-id-2",
+        "title": "Notre Dame Cathedral",
+        "content": "The architecture is amazing!",
+        "content_type": "mixed",
+        "location": {
+          "name": "Notre Dame, Paris",
+          "lat": 48.8530,
+          "lng": 2.3499
+        },
+        "media": [
+          {
+            "type": "image",
+            "url": "https://example.com/image1.jpg"
+          }
+        ],
+        "created_at": "2025-01-02T00:00:00Z",
+        "updated_at": "2025-01-02T00:00:00Z"
+      }
+    ],
+    "total": 12,
+    "page": 1,
+    "limit": 10,
+    "pages": 2
+  },
+  "message": "Entries retrieved successfully"
+}
+```
+
+### Create Entry
+
+**POST /api/v1/diaries/{diary_id}/entries**
+
+Creates a new entry in a diary.
+
+Request:
+```json
+{
+  "title": "Day 1 in Paris",
+  "content": "Today I visited the Eiffel Tower...",
+  "content_type": "text",
+  "location": {
+    "name": "Paris, France",
+    "lat": 48.8566,
+    "lng": 2.3522
+  },
+  "media": []
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "new-entry-id",
+    "title": "Day 1 in Paris",
+    "content": "Today I visited the Eiffel Tower...",
+    "content_type": "text",
+    "location": {
+      "name": "Paris, France",
+      "lat": 48.8566,
+      "lng": 2.3522
     },
-    // Additional entries...
-  ],
-  "total": 42,
-  "page": 1,
-  "limit": 10
+    "media": [],
+    "created_at": "2025-05-05T00:00:00Z",
+    "updated_at": "2025-05-05T00:00:00Z"
+  },
+  "message": "Entry created successfully"
 }
 ```
 
-#### Get Single Diary Entry
+### Get Entry
 
-```
-GET /api/v1/diaries/{entry_id}
-```
+**GET /api/v1/diaries/{diary_id}/entries/{entry_id}**
 
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
+Returns details for a specific entry.
 
-**Response:** Same structure as individual diary entry
-
-#### Update Diary Entry
-
-```
-PUT /api/v1/diaries/{entry_id}
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Request Body:**
+Response:
 ```json
 {
-  "title": "Updated Title",
-  "tags": ["travel", "europe", "paris", "vacation"]
+  "status": "success",
+  "data": {
+    "id": "entry-id",
+    "title": "Day 1 in Paris",
+    "content": "Today I visited the Eiffel Tower...",
+    "content_type": "text",
+    "location": {
+      "name": "Paris, France",
+      "lat": 48.8566,
+      "lng": 2.3522
+    },
+    "media": [],
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  },
+  "message": "Entry retrieved successfully"
 }
 ```
 
-**Response:** Updated diary entry
+### Update Entry
 
-#### Delete Diary Entry
+**PUT /api/v1/diaries/{diary_id}/entries/{entry_id}**
 
-```
-DELETE /api/v1/diaries/{entry_id}
-```
+Updates a diary entry.
 
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Response:** Status 204 No Content
-
-#### Search Diary Entries
-
-```
-POST /api/v1/diaries/search
-```
-
-**Headers:**
-```
-Authorization: Bearer {jwt-token}
-```
-
-**Request Body:**
+Request:
 ```json
 {
-  "query": "Paris",
-  "tags": ["travel"],
-  "start_date": "2023-01-01",
-  "end_date": "2023-01-31",
-  "sentiment_min": 0.5
+  "title": "Updated: Day 1 in Paris",
+  "content": "Today I visited the Eiffel Tower and the Louvre...",
+  "content_type": "text",
+  "location": {
+    "name": "Paris, France",
+    "lat": 48.8566,
+    "lng": 2.3522
+  },
+  "media": []
 }
 ```
 
-**Response:**
+Response:
 ```json
 {
-  "items": [
-    // Diary entries matching search criteria
-  ],
-  "total": 3,
-  "page": 1,
-  "limit": 10
+  "status": "success",
+  "data": {
+    "id": "entry-id",
+    "title": "Updated: Day 1 in Paris",
+    "content": "Today I visited the Eiffel Tower and the Louvre...",
+    "content_type": "text",
+    "location": {
+      "name": "Paris, France",
+      "lat": 48.8566,
+      "lng": 2.3522
+    },
+    "media": [],
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-05-05T00:00:00Z"
+  },
+  "message": "Entry updated successfully"
+}
+```
+
+### Delete Entry
+
+**DELETE /api/v1/diaries/{diary_id}/entries/{entry_id}**
+
+Deletes a diary entry.
+
+Response:
+```json
+{
+  "status": "success",
+  "data": null,
+  "message": "Entry deleted successfully"
+}
+```
+
+## Media Upload
+
+### Upload Media
+
+**POST /api/v1/media/upload**
+
+Uploads a media file and returns a URL that can be used in diary entries.
+
+Request:
+- Content-Type: multipart/form-data
+- Form field: file
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "url": "https://storage.everly.app/media/1234567890.jpg",
+    "type": "image",
+    "size": 1024000
+  },
+  "message": "File uploaded successfully"
 }
 ```
 
@@ -361,31 +456,6 @@ Diary entries support various content types:
 - `video`: Video entries with URLs
 - `location`: Location-only entries
 - `mixed`: Entries with multiple content types
-
-## Authentication Flow
-
-### Google OAuth Flow
-
-1. **Frontend Initiates Login**:
-   - Direct the user to Google's OAuth authorization page
-   - Include your client ID, redirect URI, and requested scopes
-
-2. **User Authenticates with Google**:
-   - User grants permission to your application
-
-3. **Google Redirects Back**:
-   - Google redirects to your redirect URI with an authorization code
-
-4. **Exchange Code for Token**:
-   - Send the authorization code to `/api/v1/auth/google`
-   - Backend exchanges the code for a Google access token
-   - Backend verifies the token with Google and retrieves user info
-   - Backend creates or updates the user record
-   - Backend generates a JWT token and returns it to the frontend
-
-5. **Frontend Stores Token**:
-   - Store the JWT token securely
-   - Include it in the Authorization header for authenticated requests
 
 ## Error Handling
 
@@ -424,78 +494,122 @@ Common error codes:
 
 ### Recommended Libraries
 
-- **HTTP Requests**: axios, fetch API
-- **State Management**: Redux, MobX, or React Context
-- **Form Handling**: Formik or React Hook Form
-- **Validation**: Yup or Zod
-- **Date Handling**: date-fns or Luxon
+- Authentication: Google Sign-In, Firebase Auth
+- API Requests: Axios, Fetch API
+- State Management: Redux, MobX, Zustand
+- Form Handling: Formik, React Hook Form
 
-### Authentication Implementation
+### Example Integration (React + TypeScript)
 
-```javascript
-// Example code for Google OAuth integration
-const handleGoogleLogin = async (googleResponse) => {
+```typescript
+// Authentication Service Example
+import axios from 'axios';
+
+const API_URL = 'http://localhost:8000/api/v1';
+
+// Store JWT token
+const setToken = (token: string) => {
+  localStorage.setItem('token', token);
+};
+
+// Get JWT token
+const getToken = () => {
+  return localStorage.getItem('token');
+};
+
+// Send Google OAuth token to backend
+const authenticateWithGoogle = async (googleToken: string) => {
   try {
-    const response = await axios.post('https://api.everly.app/api/v1/auth/google', {
-      code: googleResponse.code
+    const response = await axios.post(`${API_URL}/auth/google`, {
+      token: googleToken
     });
     
     const { access_token } = response.data.data;
-    
-    // Store token securely
-    localStorage.setItem('token', access_token);
-    
-    // Configure axios defaults for future requests
-    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-    
-    // Fetch user profile
-    const userResponse = await axios.get('https://api.everly.app/api/v1/users/me');
-    return userResponse.data;
+    setToken(access_token);
+    return access_token;
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('Authentication failed', error);
     throw error;
   }
 };
-```
 
-### Creating a Diary Entry
-
-```javascript
-// Example code for creating a diary entry
-const createDiaryEntry = async (entryData) => {
+// Get authenticated user
+const getCurrentUser = async () => {
   try {
-    const token = localStorage.getItem('token');
-    
-    const response = await axios.post('https://api.everly.app/api/v1/diaries', entryData, {
+    const response = await axios.get(`${API_URL}/auth/me`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${getToken()}`
       }
     });
     
     return response.data;
   } catch (error) {
-    console.error('Error creating diary entry:', error);
+    console.error('Failed to get user', error);
+    throw error;
+  }
+};
+
+// API request example
+const getDiaries = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/diaries`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`
+      }
+    });
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to get diaries', error);
     throw error;
   }
 };
 ```
 
-## Webhooks and Real-time Updates
+### Best Practices
 
-Currently, the API does not provide webhooks or real-time updates. For new content, frontend applications should poll the relevant endpoints or implement a manual refresh mechanism.
+1. **Error Handling**:
+   - Always include try/catch blocks around API calls
+   - Display user-friendly error messages
+   - Implement automatic token refresh on 401 errors
 
-## Rate Limiting
+2. **Loading States**:
+   - Show loading indicators during API calls
+   - Implement skeleton screens for better user experience
 
-The API implements rate limiting to protect the service from abuse. Limits are as follows:
+3. **Offline Support**:
+   - Cache data for offline access
+   - Queue updates when offline
+   - Sync when back online
 
-- 60 requests per minute for authenticated users
-- 10 requests per minute for unauthenticated requests
+4. **Security**:
+   - Store JWT tokens securely (HttpOnly cookies in web, secure storage in mobile)
+   - Implement token expiration and refresh
+   - Never log sensitive information
 
-When rate limits are exceeded, the API returns a 429 Too Many Requests status code.
+## Troubleshooting
 
-## Conclusion
+### Common Issues
 
-This documentation provides an overview of the Everly API for frontend integration. For additional details, explore the API documentation available at `/api/docs` when running the backend service.
+1. **Authentication Errors**:
+   - Ensure Google OAuth is configured correctly
+   - Check that the correct Google OAuth token is being sent
+   - Verify JWT token format in Authorization header
 
-For support or questions, please contact the backend team or refer to the project's internal communication channels. 
+2. **Request Errors**:
+   - Validate request payload against API schemas
+   - Check for missing required fields
+   - Ensure correct Content-Type header
+
+3. **Network Issues**:
+   - Verify API base URL
+   - Check network connectivity
+   - Implement proper timeout handling
+
+### Support
+
+For additional support or to report issues:
+
+- Email: dev@everly.app
+- Developer Portal: https://developers.everly.app
+- API Status: https://status.everly.app 

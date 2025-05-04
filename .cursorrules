@@ -23,8 +23,38 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - When using seaborn styles in matplotlib, use 'seaborn-v0_8' instead of 'seaborn' as the style name due to recent seaborn version changes
 - Use 'gpt-4o' as the model name for OpenAI's GPT-4 with vision capabilities
 - When searching for recent news, use the current year (2025) instead of previous years, or simply use the "recent" keyword to get the latest information
+- Google OAuth認證時，redirect_uri必須完全匹配Google Cloud Console中配置的重定向URI，包括協議(http/https)、大小寫和尾部斜線。不匹配會導致401錯誤。
+- 在多平台OAuth認證中，移動應用（如iOS）與後端服務器使用的OAuth客戶端可能不兼容。iOS應用通常只有客戶端ID而無客戶端密鑰，最佳實踐是讓移動端完成完整OAuth流程並將訪問令牌傳給後端，而非傳遞授權碼。
 
 # Scratchpad
+
+## Task: Google OAuth認證問題排查
+
+用戶遇到了Google OAuth認證失敗的問題，顯示401 Unauthorized錯誤。
+
+### 問題分析:
+[X] 查看錯誤日誌
+[X] 檢查OAuth配置相關代碼
+[X] 檢查環境變數配置
+[X] 了解Google OAuth常見錯誤原因
+[X] 提出解決方案
+[X] 實施解決方案
+
+### 發現:
+1. 在嘗試用授權碼換取令牌時出現401 Unauthorized錯誤
+2. .env中已配置Google OAuth相關憑據
+3. 問題根本原因：iOS應用使用Google OAuth客戶端ID獲取授權碼，而後端使用不同的OAuth客戶端（帶密鑰）嘗試交換令牌
+
+### 解決方案:
+1. 修改認證流程，改為iOS應用完成完整的OAuth流程（包括獲取訪問令牌）
+2. 後端接受Google訪問令牌而非授權碼
+3. 更新相關API端點和文檔
+
+### 實施步驟:
+[X] 修改 app/schemas/auth.py 中的 GoogleAuthRequest 模型，改為接受訪問令牌而非授權碼
+[X] 修改 app/api/v1/endpoints/auth.py 中的 login_with_google 端點，改為直接驗證訪問令牌
+[X] 優化 app/services/auth.py 中的 verify_google_token 函數，刪除不再需要的 exchange_code_for_token 函數
+[X] 更新前端開發者文檔，說明新的認證流程
 
 ## Task: Generate Technical Documentation for Frontend Developers
 

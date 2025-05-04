@@ -53,7 +53,6 @@ JWT_EXPIRATION_SECONDS=604800  # 7 days
 
 # Google OAuth
 GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
 
 # AI Services

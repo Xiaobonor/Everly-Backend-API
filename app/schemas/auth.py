@@ -1,8 +1,8 @@
 """Authentication schemas for request and response validation."""
 
-from typing import Optional
+from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class Token(BaseModel):
@@ -19,15 +19,23 @@ class TokenPayload(BaseModel):
     email: Optional[str] = None
 
 
-class GoogleAuthRequest(BaseModel):
-    """Schema for Google authentication request."""
-
-    code: str
-
-
 class AuthResponse(BaseModel):
     """Schema for authentication response."""
 
     status: str = "success"
-    data: Token
-    message: Optional[str] = None 
+    data: Dict
+    message: str
+
+
+class GoogleAuthRequest(BaseModel):
+    """Schema for Google authentication request."""
+
+    token: str = Field(..., description="Google OAuth access token")
+
+
+class TokenData(BaseModel):
+    """Schema for JWT token data."""
+
+    sub: str
+    exp: Optional[int] = None
+    email: Optional[EmailStr] = None 

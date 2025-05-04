@@ -11,12 +11,11 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.db.connection import connect_to_mongo, disconnect_from_mongo
 from app.core.redis import connect_to_redis, disconnect_from_redis
+from app.core.logging import init_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# 初始化日誌系統
+init_logging()
+
 logger = logging.getLogger(__name__)
 
 # Create FastAPI application

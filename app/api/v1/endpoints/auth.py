@@ -9,7 +9,6 @@ from app.schemas.auth import AuthResponse, GoogleAuthRequest
 from app.schemas.user import UserResponse
 from app.services.auth import (
     create_access_token,
-    exchange_code_for_token,
     find_or_create_user,
     get_current_user,
     verify_google_token,
@@ -23,20 +22,34 @@ logger = logging.getLogger(__name__)
 @router.post("/google", response_model=AuthResponse)
 async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
     """
-    Authenticate using Google OAuth.
+    Authenticate using Google OAuth token.
     
     Args:
-        auth_request: The authentication request containing the authorization code.
+        auth_request: The authentication request containing the Google OAuth access token.
         
     Returns:
-        Authentication response with access token.
+        Authentication response with JWT access token.
     """
+    logger.info("Received Google authentication request")
+    
+    # 記錄認證請求的基本信息
+    token_length = len(auth_request.token) if auth_request.token else 0
+    logger.info(f"Google OAuth token length: {token_length}")
+    
+    if not auth_request.token:
+        logger.error("Empty Google OAuth token received")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google OAuth token is required"
+        )
+    
     try:
-        # Exchange authorization code for access token
-        token = await exchange_code_for_token(auth_request.code)
+        # 記錄開始驗證令牌並獲取用戶信息
+        logger.info("Starting token verification and user info retrieval")
         
         # Verify token and get user info
-        user_info = await verify_google_token(token)
+        user_info = await verify_google_token(auth_request.token)
+        logger.info("Successfully verified token and retrieved user info")
         
         # Extract user data
         email = user_info.get("email")
@@ -44,11 +57,18 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
         picture = user_info.get("picture")
         google_id = user_info.get("sub")  # Google's user ID
         
+        # 記錄用戶信息
+        logger.info(f"User info retrieved - email: {email}, name: {name}, google_id present: {bool(google_id)}")
+        
         if not email:
+            logger.error("Email not provided by Google authentication")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email not provided by Google authentication"
             )
+        
+        # 記錄查找或創建用戶
+        logger.info(f"Finding or creating user with email: {email}")
         
         # Find or create user
         user = await find_or_create_user(
@@ -57,11 +77,16 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
             picture=picture,
             google_id=google_id
         )
+        logger.info(f"User found or created with ID: {user.id}")
+        
+        # 記錄創建訪問令牌
+        logger.info("Creating JWT access token")
         
         # Create access token
         access_token = create_access_token(
             data={"sub": str(user.id), "email": user.email}
         )
+        logger.info("JWT access token created successfully")
         
         return {
             "status": "success",
@@ -72,7 +97,8 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
             "message": "Authentication successful"
         }
     except Exception as e:
-        logger.error(f"Google authentication error: {e}")
+        # 記錄具體的錯誤信息和堆棧跟踪
+        logger.error(f"Google authentication error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed"

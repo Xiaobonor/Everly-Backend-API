@@ -33,59 +33,58 @@ async def verify_google_token(token: str) -> Dict:
     """
     google_user_info_url = "https://www.googleapis.com/oauth2/v3/userinfo"
     
+    # 記錄令牌驗證嘗試
+    token_length = len(token) if token else 0
+    logger.info(f"Verifying Google token with length: {token_length}")
+    
+    if not token:
+        logger.error("Empty Google token provided")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google token is required"
+        )
+    
     try:
+        logger.debug(f"Sending GET request to {google_user_info_url}")
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 google_user_info_url,
                 headers={"Authorization": f"Bearer {token}"}
             )
+            
+            # 詳細記錄響應情況
+            status_code = response.status_code
+            logger.info(f"Google user info response status: {status_code}")
+            
+            if status_code != 200:
+                # 記錄錯誤響應內容以幫助診斷
+                try:
+                    error_details = response.json()
+                    logger.error(f"Google user info error details: {error_details}")
+                except Exception:
+                    logger.error(f"Google user info error, raw response: {response.text}")
+            
             response.raise_for_status()
             
             user_info = response.json()
+            logger.info(f"Successfully retrieved user info for email: {user_info.get('email', 'unknown')}")
             return user_info
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error during token verification: {e.response.status_code} {e.response.reason_phrase}")
+        try:
+            error_body = e.response.json()
+            logger.error(f"Error response body: {error_body}")
+        except Exception:
+            logger.error(f"Error response text: {e.response.text}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate Google credentials: {e.response.reason_phrase}"
+        )
     except Exception as e:
-        logger.error(f"Error verifying Google token: {e}")
+        logger.error(f"Unexpected error verifying Google token: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate Google credentials"
-        )
-
-
-async def exchange_code_for_token(code: str) -> str:
-    """
-    Exchange authorization code for access token.
-    
-    Args:
-        code: The authorization code from Google OAuth.
-        
-    Returns:
-        Access token.
-        
-    Raises:
-        HTTPException: If token exchange fails.
-    """
-    token_url = "https://oauth2.googleapis.com/token"
-    
-    data = {
-        "code": code,
-        "client_id": settings.GOOGLE_CLIENT_ID,
-        "client_secret": settings.GOOGLE_CLIENT_SECRET,
-        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-        "grant_type": "authorization_code"
-    }
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(token_url, data=data)
-            response.raise_for_status()
-            
-            token_data = response.json()
-            return token_data["access_token"]
-    except Exception as e:
-        logger.error(f"Error exchanging code for token: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not exchange code for token"
         )
 
 
