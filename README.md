@@ -151,84 +151,84 @@ This project is proprietary and confidential.
 For any inquiries, please contact:
 - Developer: your.email@example.com
 
-# Everly API 測試客戶端
+# Everly API Test Client
 
-這是一個用於測試 Everly 後端 API 的命令行工具。可用於自動、手動或模擬前端的各種操作，幫助開發人員測試和驗證 API 功能。
+This is a command-line tool for testing the Everly backend API. It can be used for automatic, manual, or simulated frontend operations to help developers test and validate API functionality.
 
-## 功能特點
+## Features
 
-- 設置後端 API 地址
-- Google OAuth 登入流程
-- 用戶信息管理
-- 日記條目的 CRUD 操作
-- 自動化測試流程
-- 配置保存和加載
+- Set up backend API URL
+- Google OAuth login flow
+- User information management
+- CRUD operations for diary entries
+- Automated testing workflows
+- Configuration saving and loading
 
-## 安裝與設置
+## Installation and Setup
 
-1. 確保已安裝 Python 3.8 或更高版本
-2. 克隆此倉庫或下載源代碼
-3. 安裝依賴包:
+1. Ensure Python 3.8 or higher is installed
+2. Clone this repository or download the source code
+3. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 使用方法
+## Usage
 
-### 基本使用
+### Basic Usage
 
-直接運行腳本啟動測試客戶端:
+Run the script directly to start the test client:
 
 ```bash
 python test_client.py
 ```
 
-首次運行時，會提示您輸入後端 API 的基礎 URL。
+On first run, you will be prompted to enter the base URL of the backend API.
 
-### 命令行參數
+### Command Line Arguments
 
 ```bash
 python test_client.py --url=http://localhost:8000 --token=your_access_token --autotest
 ```
 
-- `--url`: 設置後端 API 基礎 URL
-- `--token`: 使用已有的訪問令牌
-- `--autotest`: 直接執行自動化測試
+- `--url`: Set the backend API base URL
+- `--token`: Use an existing access token
+- `--autotest`: Run automated tests directly
 
-## 主要功能
+## Main Functions
 
-### 1. 設置後端 API URL
+### 1. Set Backend API URL
 
-設置要連接的 Everly 後端 API 地址。
+Set the Everly backend API address to connect to.
 
-### 2. Google 登入
+### 2. Google Login
 
-提供 Google OAuth 登入流程，引導您完成身份驗證並獲取訪問令牌。
+Provides a Google OAuth login flow, guiding you through authentication to obtain an access token.
 
-### 3. 用戶信息
+### 3. User Information
 
-獲取當前登入用戶的詳細信息。
+Get detailed information about the currently logged-in user.
 
-### 4. 日記條目管理
+### 4. Diary Entry Management
 
-- 獲取日記條目列表
-- 創建新的日記條目
-- 查看日記條目詳情
-- 更新現有日記條目
-- 刪除日記條目
-- 搜索日記條目
+- Get list of diary entries
+- Create new diary entries
+- View diary entry details
+- Update existing diary entries
+- Delete diary entries
+- Search diary entries
 
-### 5. 自動化測試
+### 5. Automated Testing
 
-執行自動化測試流程，測試 API 的主要功能點。
+Run automated test workflows to test the main API functionality.
 
-## 注意事項
+## Notes
 
-- 請確保後端 API 服務器正在運行
-- Google 登入需要在後端正確配置 OAuth 憑證
-- 訪問令牌會臨時保存在本地配置文件中
+- Ensure the backend API server is running
+- Google login requires proper OAuth credentials configuration in the backend
+- Access tokens are temporarily saved in a local configuration file
 
-## 開發者信息
+## Developer Information
 
-此測試客戶端由 Everly 團隊開發，用於內部測試和開發。
+This test client was developed by the Everly team for internal testing and development.
