@@ -76,18 +76,157 @@ Returns information about the currently authenticated user.
 Response:
 ```json
 {
-  "id": "user-id",
-  "email": "user@example.com",
-  "full_name": "User Name",
-  "profile_picture": "https://example.com/profile.jpg",
-  "is_active": true,
-  "created_at": "2025-01-01T00:00:00Z",
-  "preferences": [
+  "status": "success",
+  "data": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "full_name": "User Name",
+    "profile_picture": "https://example.com/profile.jpg",
+    "is_active": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "preferences": [
+      {
+        "key": "language",
+        "value": "zh-TW"
+      },
+      {
+        "key": "theme",
+        "value": "dark"
+      }
+    ]
+  },
+  "message": "User information retrieved successfully"
+}
+```
+
+### Update User Profile
+
+**PUT /api/v1/users/me**
+
+Updates the user's name and other general profile information.
+
+Request:
+```json
+{
+  "full_name": "New User Name"
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "full_name": "New User Name",
+    "profile_picture": "https://example.com/profile.jpg",
+    "is_active": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "preferences": [
+      {
+        "key": "language",
+        "value": "zh-TW"
+      },
+      {
+        "key": "theme",
+        "value": "dark"
+      }
+    ]
+  },
+  "message": "User information updated successfully"
+}
+```
+
+### Upload Profile Picture
+
+**PUT /api/v1/users/me/profile-picture**
+
+Updates the user's profile picture.
+
+Request:
+- Content-Type: multipart/form-data
+- Form field: file (image file)
+
+Response:
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "user-id",
+    "email": "user@example.com",
+    "full_name": "User Name",
+    "profile_picture": "/static/uploads/profiles/uuid-filename.jpg",
+    "is_active": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "preferences": [
+      {
+        "key": "language",
+        "value": "zh-TW"
+      },
+      {
+        "key": "theme",
+        "value": "dark"
+      }
+    ]
+  },
+  "message": "Profile picture updated successfully"
+}
+```
+
+### Get User Preferences
+
+**GET /api/v1/users/me/preferences**
+
+Returns the user's preference settings.
+
+Response:
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "key": "language",
+      "value": "zh-TW"
+    },
     {
       "key": "theme",
       "value": "dark"
     }
-  ]
+  ],
+  "message": "User preferences retrieved successfully"
+}
+```
+
+### Update User Preferences
+
+**PUT /api/v1/users/me/preferences**
+
+Updates the user's preference settings.
+
+Request:
+```json
+{
+  "language": "zh-TW",
+  "theme": "dark"
+}
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "key": "language",
+      "value": "zh-TW"
+    },
+    {
+      "key": "theme",
+      "value": "dark"
+    }
+  ],
+  "message": "User preferences updated successfully"
 }
 ```
 
@@ -498,6 +637,7 @@ Common error codes:
 - API Requests: Axios, Fetch API
 - State Management: Redux, MobX, Zustand
 - Form Handling: Formik, React Hook Form
+- Internationalization: i18next, react-intl
 
 ### Example Integration (React + TypeScript)
 
@@ -542,50 +682,166 @@ const getCurrentUser = async () => {
       }
     });
     
-    return response.data;
+    return response.data.data;
   } catch (error) {
     console.error('Failed to get user', error);
     throw error;
   }
 };
 
-// API request example
-const getDiaries = async () => {
+// Update user preferences
+const updateUserPreferences = async (preferences: { language?: string; theme?: string }) => {
   try {
-    const response = await axios.get(`${API_URL}/diaries`, {
-      headers: {
-        Authorization: `Bearer ${getToken()}`
+    const response = await axios.put(
+      `${API_URL}/users/me/preferences`,
+      preferences,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
       }
-    });
+    );
     
     return response.data.data;
   } catch (error) {
-    console.error('Failed to get diaries', error);
+    console.error('Failed to update preferences', error);
+    throw error;
+  }
+};
+
+// Upload profile picture
+const uploadProfilePicture = async (file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await axios.put(
+      `${API_URL}/users/me/profile-picture`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Failed to upload profile picture', error);
     throw error;
   }
 };
 ```
 
-### Best Practices
+### User Settings Implementation Example
 
-1. **Error Handling**:
-   - Always include try/catch blocks around API calls
-   - Display user-friendly error messages
-   - Implement automatic token refresh on 401 errors
+```typescript
+import React, { useState, useEffect } from 'react';
+import { getCurrentUser, updateUserPreferences, uploadProfilePicture } from './api';
 
-2. **Loading States**:
-   - Show loading indicators during API calls
-   - Implement skeleton screens for better user experience
+const UserSettings = () => {
+  const [user, setUser] = useState(null);
+  const [language, setLanguage] = useState('en');
+  const [theme, setTheme] = useState('light');
+  const [name, setName] = useState('');
+  const [file, setFile] = useState(null);
+  
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userData = await getCurrentUser();
+      setUser(userData);
+      
+      // Parse preferences
+      const langPref = userData.preferences.find(p => p.key === 'language');
+      if (langPref) setLanguage(langPref.value);
+      
+      const themePref = userData.preferences.find(p => p.key === 'theme');
+      if (themePref) setTheme(themePref.value);
+      
+      setName(userData.full_name);
+    };
+    
+    fetchUser();
+  }, []);
+  
+  const handleUpdatePreferences = async () => {
+    await updateUserPreferences({ language, theme });
+    // Update UI or show success message
+  };
+  
+  const handleUpdateName = async () => {
+    await axios.put(
+      `${API_URL}/users/me`,
+      { full_name: name },
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
+      }
+    );
+    // Update UI or show success message
+  };
+  
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+  
+  const handleUploadPicture = async () => {
+    if (!file) return;
+    await uploadProfilePicture(file);
+    // Update UI or show success message
+  };
+  
+  if (!user) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h1>User Settings</h1>
+      
+      <section>
+        <h2>Profile</h2>
+        <div>
+          <label>Name:</label>
+          <input value={name} onChange={e => setName(e.target.value)} />
+          <button onClick={handleUpdateName}>Update Name</button>
+        </div>
+        
+        <div>
+          <label>Profile Picture:</label>
+          <input type="file" accept="image/*" onChange={handleFileChange} />
+          <button onClick={handleUploadPicture} disabled={!file}>Upload</button>
+        </div>
+      </section>
+      
+      <section>
+        <h2>Preferences</h2>
+        <div>
+          <label>Language:</label>
+          <select value={language} onChange={e => setLanguage(e.target.value)}>
+            <option value="en">English</option>
+            <option value="zh-TW">Traditional Chinese</option>
+            <option value="es">Spanish</option>
+          </select>
+        </div>
+        
+        <div>
+          <label>Theme:</label>
+          <select value={theme} onChange={e => setTheme(e.target.value)}>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="system">System</option>
+          </select>
+        </div>
+        
+        <button onClick={handleUpdatePreferences}>Save Preferences</button>
+      </section>
+    </div>
+  );
+};
 
-3. **Offline Support**:
-   - Cache data for offline access
-   - Queue updates when offline
-   - Sync when back online
-
-4. **Security**:
-   - Store JWT tokens securely (HttpOnly cookies in web, secure storage in mobile)
-   - Implement token expiration and refresh
-   - Never log sensitive information
+export default UserSettings;
+```
 
 ## Troubleshooting
 

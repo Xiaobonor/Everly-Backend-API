@@ -1,11 +1,13 @@
 """Main application module."""
 
 import logging
+import os
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import api_router
 from app.core.config import settings
@@ -42,6 +44,9 @@ app.add_middleware(
 async def startup_event() -> None:
     """Execute startup tasks."""
     logger.info("Starting Everly backend...")
+    
+    # Ensure upload directories exist
+    os.makedirs("static/uploads/profiles", exist_ok=True)
     
     # Connect to MongoDB
     try:
@@ -94,6 +99,9 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         },
     )
 
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include API router
 app.include_router(api_router, prefix=f"/api/{settings.API_VERSION}")

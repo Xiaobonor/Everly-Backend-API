@@ -2,7 +2,7 @@
 
 import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -17,6 +17,55 @@ class ContentType(str, Enum):
     VIDEO = "video"
     LOCATION = "location"
     MIXED = "mixed"
+
+
+class LocationModel(BaseModel):
+    """Schema for location information."""
+
+    name: str
+    lat: float
+    lng: float
+
+
+class MediaModel(BaseModel):
+    """Schema for media content."""
+
+    type: str
+    url: str
+
+
+class DiaryBase(BaseModel):
+    """Base diary schema."""
+
+    title: str
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+
+
+class DiaryCreate(DiaryBase):
+    """Schema for creating a diary."""
+    pass
+
+
+class DiaryUpdate(BaseModel):
+    """Schema for updating a diary."""
+
+    title: Optional[str] = None
+    description: Optional[str] = None
+    cover_image: Optional[str] = None
+
+
+class DiaryResponse(DiaryBase):
+    """Schema for diary response."""
+
+    id: str
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+    entry_count: int = 0
+
+    class Config:
+        """Pydantic config."""
+        from_attributes = True
 
 
 class MediaContentCreate(BaseModel):
@@ -41,15 +90,13 @@ class DiaryEntryBase(BaseModel):
     title: str = Field(..., max_length=200)
     content: Optional[str] = None
     content_type: ContentType = ContentType.TEXT
-    location: Optional[Tuple[float, float]] = None
-    location_name: Optional[str] = None
-    tags: List[str] = []
+    location: Optional[LocationModel] = None
+    media: List[MediaModel] = []
 
 
 class DiaryEntryCreate(DiaryEntryBase):
     """Schema for creating a diary entry."""
-
-    media_content: Optional[List[MediaContentCreate]] = None
+    pass
 
 
 class DiaryEntryUpdate(BaseModel):
@@ -58,37 +105,30 @@ class DiaryEntryUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
     content: Optional[str] = None
     content_type: Optional[ContentType] = None
-    media_content: Optional[List[MediaContentCreate]] = None
-    location: Optional[Tuple[float, float]] = None
-    location_name: Optional[str] = None
-    tags: Optional[List[str]] = None
-
-
-class DiaryEntryAnalysis(BaseModel):
-    """Schema for diary entry analysis results."""
-
-    sentiment_score: Optional[float] = None
-    topics: List[str] = []
-    entities: List[str] = []
-    analyzed_at: datetime.datetime
+    location: Optional[LocationModel] = None
+    media: Optional[List[MediaModel]] = None
 
 
 class DiaryEntryResponse(DiaryEntryBase):
     """Schema for diary entry response."""
 
     id: str
-    user: str
-    media_content: List[MediaContentResponse] = []
-    sentiment_score: Optional[float] = None
-    topics: List[str] = []
-    entities: List[str] = []
     created_at: datetime.datetime
     updated_at: datetime.datetime
 
     class Config:
         """Pydantic config."""
-
         from_attributes = True
+
+
+class DiaryEntriesResponse(BaseModel):
+    """Schema for paginated entries response."""
+    
+    entries: List[DiaryEntryResponse]
+    total: int
+    page: int
+    limit: int
+    pages: int
 
 
 class DiaryEntryList(BaseModel):
@@ -107,7 +147,5 @@ class DiaryEntrySearchParams(BaseModel):
     tags: Optional[List[str]] = None
     start_date: Optional[datetime.date] = None
     end_date: Optional[datetime.date] = None
-    location: Optional[Tuple[float, float]] = None
-    radius: Optional[float] = None  # in kilometers
-    sentiment_min: Optional[float] = None
-    sentiment_max: Optional[float] = None 
+    location: Optional[LocationModel] = None
+    radius: Optional[float] = None  # in kilometers 

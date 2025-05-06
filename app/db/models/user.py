@@ -13,6 +13,7 @@ from mongoengine import (
     ListField,
     StringField,
     URLField,
+    DictField,
 )
 
 
@@ -35,7 +36,7 @@ class User(Document):
     updated_at = DateTimeField(default=datetime.datetime.utcnow)
     last_login = DateTimeField()
     is_active = BooleanField(default=True)
-    preferences = ListField(StringField())
+    preferences = DictField(default={})
     
     meta = {
         "collection": "users",
@@ -83,6 +84,11 @@ class User(Document):
         Returns:
             A dictionary representation of the user.
         """
+        preferences_list = []
+        if self.preferences:
+            for key, value in self.preferences.items():
+                preferences_list.append({"key": key, "value": value})
+                
         return {
             "id": str(self.id),
             "email": self.email,
@@ -91,5 +97,5 @@ class User(Document):
             "role": self.role,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "is_active": self.is_active,
-            "preferences": self.preferences
+            "preferences": preferences_list
         } 

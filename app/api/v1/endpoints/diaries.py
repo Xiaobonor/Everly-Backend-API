@@ -2,116 +2,273 @@
 
 import logging
 from typing import Any, Dict, List, Optional
+import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
 
 from app.schemas.diary import (
+    DiaryCreate,
+    DiaryUpdate,
+    DiaryResponse,
     DiaryEntryCreate,
-    DiaryEntryList,
-    DiaryEntryResponse,
-    DiaryEntrySearchParams,
     DiaryEntryUpdate,
+    DiaryEntryResponse,
+    DiaryEntriesResponse,
+    DiaryEntrySearchParams,
 )
+from app.schemas.user import ApiResponse
 from app.services.auth import get_current_user
-from app.db.models.diary import DiaryEntry
+from app.db.models.diary import Diary, DiaryEntry
 from app.db.models.user import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.post("", response_model=DiaryEntryResponse, status_code=status.HTTP_201_CREATED)
-async def create_diary_entry(
-    entry: DiaryEntryCreate, current_user: User = Depends(get_current_user)
-) -> Any:
+# 日記相關端點
+@router.get("", response_model=ApiResponse)
+async def get_diaries(current_user: User = Depends(get_current_user)) -> Any:
     """
-    Create a new diary entry.
+    獲取用戶的所有日記列表。
     
     Args:
-        entry: The diary entry data.
-        current_user: The current authenticated user.
+        current_user: 當前認證用戶。
         
     Returns:
-        Created diary entry.
+        日記列表。
     """
     try:
-        # Create the diary entry
-        new_entry = DiaryEntry(
-            user=current_user,
-            title=entry.title,
-            content=entry.content,
-            content_type=entry.content_type,
-            location=entry.location,
-            location_name=entry.location_name,
-            tags=entry.tags
-        )
+        diaries = Diary.get_by_user(user_id=current_user.id)
+        diaries_data = [diary.to_dict() for diary in diaries]
         
-        # Add media content if provided
-        if entry.media_content:
-            from app.db.models.diary import MediaContent
-            
-            for media in entry.media_content:
-                media_content = MediaContent(
-                    url=str(media.url),
-                    content_type=media.content_type,
-                    thumbnail_url=str(media.thumbnail_url) if media.thumbnail_url else None,
-                    description=media.description,
-                    location=media.location
-                )
-                new_entry.media_content.append(media_content)
-        
-        new_entry.save()
-        
-        # TODO: Schedule AI analysis of the entry content
-        
-        # 使用to_dict方法，確保ObjectId和User對象被正確轉換為字符串
-        return new_entry.to_dict()
+        return {
+            "status": "success",
+            "data": diaries_data,
+            "message": "Diaries retrieved successfully"
+        }
     except Exception as e:
-        logger.error(f"Error creating diary entry: {e}")
+        logger.error(f"Error retrieving diaries: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while creating the diary entry"
+            detail="An error occurred while retrieving diaries"
         )
 
 
-@router.get("", response_model=DiaryEntryList)
-async def get_diary_entries(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+@router.post("", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+async def create_diary(diary: DiaryCreate, current_user: User = Depends(get_current_user)) -> Any:
+    """
+    創建新日記。
+    
+    Args:
+        diary: 日記數據。
+        current_user: 當前認證用戶。
+        
+    Returns:
+        創建的日記。
+    """
+    try:
+        new_diary = Diary(
+            user=current_user,
+            title=diary.title,
+            description=diary.description,
+            cover_image=diary.cover_image
+        )
+        new_diary.save()
+        
+        return {
+            "status": "success",
+            "data": new_diary.to_dict(),
+            "message": "Diary created successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error creating diary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the diary"
+        )
+
+
+@router.get("/{diary_id}", response_model=ApiResponse)
+async def get_diary(
+    diary_id: str = Path(..., title="The ID of the diary to get"),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    Get paginated list of diary entries for the current user.
+    獲取特定日記的詳細信息。
     
     Args:
-        page: Page number (1-indexed).
-        limit: Number of items per page.
-        current_user: The current authenticated user.
+        diary_id: 日記ID。
+        current_user: 當前認證用戶。
         
     Returns:
-        List of diary entries.
+        日記詳細信息。
+    """
+    diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+    
+    if not diary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diary not found"
+        )
+    
+    return {
+        "status": "success",
+        "data": diary.to_dict(),
+        "message": "Diary retrieved successfully"
+    }
+
+
+@router.put("/{diary_id}", response_model=ApiResponse)
+async def update_diary(
+    diary_update: DiaryUpdate,
+    diary_id: str = Path(..., title="The ID of the diary to update"),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    更新特定日記的信息。
+    
+    Args:
+        diary_id: 日記ID。
+        diary_update: 更新的日記數據。
+        current_user: 當前認證用戶。
+        
+    Returns:
+        更新後的日記信息。
     """
     try:
+        diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        
+        if not diary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diary not found"
+            )
+        
+        update_data = diary_update.dict(exclude_unset=True, exclude_none=True)
+        
+        for field, value in update_data.items():
+            setattr(diary, field, value)
+        
+        diary.save()
+        
+        return {
+            "status": "success",
+            "data": diary.to_dict(),
+            "message": "Diary updated successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error updating diary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the diary"
+        )
+
+
+@router.delete("/{diary_id}", status_code=status.HTTP_200_OK, response_model=ApiResponse)
+async def delete_diary(
+    diary_id: str = Path(..., title="The ID of the diary to delete"),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    刪除特定日記及其所有條目。
+    
+    Args:
+        diary_id: 日記ID。
+        current_user: 當前認證用戶。
+        
+    Returns:
+        成功信息。
+    """
+    diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+    
+    if not diary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diary not found"
+        )
+    
+    try:
+        # 刪除該日記的所有條目
+        DiaryEntry.objects(diary=diary.id).delete()
+        
+        # 刪除日記
+        diary.delete()
+        
+        return {
+            "status": "success",
+            "data": None,
+            "message": "Diary deleted successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error deleting diary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while deleting the diary"
+        )
+
+
+# 日記條目相關端點
+@router.get("/{diary_id}/entries", response_model=ApiResponse)
+async def get_diary_entries(
+    diary_id: str = Path(..., title="The ID of the diary"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    sort: str = Query("desc", regex="^(asc|desc)$"),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    獲取特定日記的條目列表。
+    
+    Args:
+        diary_id: 日記ID。
+        page: 頁碼，從1開始。
+        limit: 每頁項目數。
+        sort: 排序順序，"asc"或"desc"。
+        current_user: 當前認證用戶。
+        
+    Returns:
+        日記條目分頁列表。
+    """
+    try:
+        # 先確認日記存在且屬於當前用戶
+        diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        if not diary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diary not found"
+            )
+        
         skip = (page - 1) * limit
         
-        # Get total count
-        total = DiaryEntry.objects(user=current_user.id).count()
+        # 獲取總數
+        total = DiaryEntry.objects(diary=diary.id).count()
         
-        # Get paginated entries
-        entries = DiaryEntry.get_by_user(
-            user_id=current_user.id, 
+        # 獲取分頁條目
+        entries = DiaryEntry.get_by_diary(
+            diary_id=diary.id, 
             limit=limit, 
-            skip=skip
+            skip=skip,
+            sort=sort
         )
+        
+        # 計算總頁數
+        pages = (total + limit - 1) // limit  # 向上取整
         
         # 轉換為字典列表
         entry_dicts = [entry.to_dict() for entry in entries]
         
-        return {
-            "items": entry_dicts,
+        entries_data = {
+            "entries": entry_dicts,
             "total": total,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "pages": pages
+        }
+        
+        return {
+            "status": "success",
+            "data": entries_data,
+            "message": "Entries retrieved successfully"
         }
     except Exception as e:
         logger.error(f"Error retrieving diary entries: {e}")
@@ -121,21 +278,106 @@ async def get_diary_entries(
         )
 
 
-@router.get("/{entry_id}", response_model=DiaryEntryResponse)
-async def get_diary_entry(
-    entry_id: str, current_user: User = Depends(get_current_user)
+@router.post("/{diary_id}/entries", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+async def create_diary_entry(
+    entry: DiaryEntryCreate,
+    diary_id: str = Path(..., title="The ID of the diary"),
+    current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    Get a specific diary entry by ID.
+    在指定日記中創建新條目。
     
     Args:
-        entry_id: The ID of the diary entry.
-        current_user: The current authenticated user.
+        diary_id: 日記ID。
+        entry: 日記條目數據。
+        current_user: 當前認證用戶。
         
     Returns:
-        Diary entry.
+        創建的日記條目。
     """
-    entry = DiaryEntry.get_by_id(entry_id=entry_id, user_id=current_user.id)
+    try:
+        # 先確認日記存在且屬於當前用戶
+        diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        if not diary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diary not found"
+            )
+        
+        # 創建日記條目
+        new_entry = DiaryEntry(
+            user=current_user,
+            diary=diary,
+            title=entry.title,
+            content=entry.content,
+            content_type=entry.content_type
+        )
+        
+        # 處理位置信息
+        if entry.location:
+            from app.db.models.diary import Location
+            location = Location(
+                name=entry.location.name,
+                lat=entry.location.lat,
+                lng=entry.location.lng
+            )
+            new_entry.location = location
+        
+        # 處理媒體內容
+        if entry.media:
+            from app.db.models.diary import MediaContent
+            for media in entry.media:
+                media_content = MediaContent(
+                    type=media.type,
+                    url=media.url
+                )
+                new_entry.media.append(media_content)
+        
+        new_entry.save()
+        
+        # 更新日記的更新時間
+        diary.updated_at = datetime.datetime.utcnow()
+        diary.save()
+        
+        return {
+            "status": "success",
+            "data": new_entry.to_dict(),
+            "message": "Entry created successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error creating diary entry: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the diary entry"
+        )
+
+
+@router.get("/{diary_id}/entries/{entry_id}", response_model=ApiResponse)
+async def get_diary_entry(
+    diary_id: str = Path(..., title="The ID of the diary"),
+    entry_id: str = Path(..., title="The ID of the entry"),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    獲取特定日記條目的詳細信息。
+    
+    Args:
+        diary_id: 日記ID。
+        entry_id: 條目ID。
+        current_user: 當前認證用戶。
+        
+    Returns:
+        日記條目詳細信息。
+    """
+    # 先確認日記存在且屬於當前用戶
+    diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+    if not diary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diary not found"
+        )
+    
+    entry = DiaryEntry.get_by_id(entry_id=entry_id, diary_id=diary.id)
     
     if not entry:
         raise HTTPException(
@@ -143,29 +385,42 @@ async def get_diary_entry(
             detail="Diary entry not found"
         )
     
-    # 使用to_dict方法轉換為字典
-    return entry.to_dict()
+    return {
+        "status": "success",
+        "data": entry.to_dict(),
+        "message": "Entry retrieved successfully"
+    }
 
 
-@router.put("/{entry_id}", response_model=DiaryEntryResponse)
+@router.put("/{diary_id}/entries/{entry_id}", response_model=ApiResponse)
 async def update_diary_entry(
-    entry_id: str,
     entry_update: DiaryEntryUpdate,
+    diary_id: str = Path(..., title="The ID of the diary"),
+    entry_id: str = Path(..., title="The ID of the entry"),
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    Update a diary entry.
+    更新特定日記條目的信息。
     
     Args:
-        entry_id: The ID of the diary entry to update.
-        entry_update: The diary entry data to update.
-        current_user: The current authenticated user.
+        diary_id: 日記ID。
+        entry_id: 條目ID。
+        entry_update: 更新的條目數據。
+        current_user: 當前認證用戶。
         
     Returns:
-        Updated diary entry.
+        更新後的條目信息。
     """
     try:
-        entry = DiaryEntry.get_by_id(entry_id=entry_id, user_id=current_user.id)
+        # 先確認日記存在且屬於當前用戶
+        diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        if not diary:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diary not found"
+            )
+        
+        entry = DiaryEntry.get_by_id(entry_id=entry_id, diary_id=diary.id)
         
         if not entry:
             raise HTTPException(
@@ -173,36 +428,47 @@ async def update_diary_entry(
                 detail="Diary entry not found"
             )
         
-        update_data = entry_update.dict(exclude_unset=True)
+        update_data = entry_update.dict(exclude_unset=True, exclude_none=True)
         
-        # Handle media content separately
-        media_content = update_data.pop("media_content", None)
+        # 分別處理嵌套字段
+        location = update_data.pop("location", None)
+        media = update_data.pop("media", None)
         
-        # Update fields
+        # 更新簡單字段
         for field, value in update_data.items():
             setattr(entry, field, value)
         
-        # Update media content if provided
-        if media_content is not None:
+        # 更新位置信息
+        if location is not None:
+            from app.db.models.diary import Location
+            entry.location = Location(
+                name=location.name,
+                lat=location.lat,
+                lng=location.lng
+            ) if location else None
+        
+        # 更新媒體內容
+        if media is not None:
             from app.db.models.diary import MediaContent
-            
-            entry.media_content = []
-            for media in media_content:
-                media_obj = MediaContent(
-                    url=str(media.url),
-                    content_type=media.content_type,
-                    thumbnail_url=str(media.thumbnail_url) if media.thumbnail_url else None,
-                    description=media.description,
-                    location=media.location
+            entry.media = []
+            for m in media:
+                media_content = MediaContent(
+                    type=m.type,
+                    url=m.url
                 )
-                entry.media_content.append(media_obj)
+                entry.media.append(media_content)
         
         entry.save()
         
-        # TODO: Schedule re-analysis of the entry content if it changed
+        # 更新日記的更新時間
+        diary.updated_at = datetime.datetime.utcnow()
+        diary.save()
         
-        # 使用to_dict方法轉換為字典
-        return entry.to_dict()
+        return {
+            "status": "success",
+            "data": entry.to_dict(),
+            "message": "Entry updated successfully"
+        }
     except Exception as e:
         logger.error(f"Error updating diary entry: {e}")
         raise HTTPException(
@@ -211,18 +477,32 @@ async def update_diary_entry(
         )
 
 
-@router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{diary_id}/entries/{entry_id}", status_code=status.HTTP_200_OK, response_model=ApiResponse)
 async def delete_diary_entry(
-    entry_id: str, current_user: User = Depends(get_current_user)
-) -> None:
+    diary_id: str = Path(..., title="The ID of the diary"),
+    entry_id: str = Path(..., title="The ID of the entry"),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
     """
-    Delete a diary entry.
+    刪除特定日記條目。
     
     Args:
-        entry_id: The ID of the diary entry to delete.
-        current_user: The current authenticated user.
+        diary_id: 日記ID。
+        entry_id: 條目ID。
+        current_user: 當前認證用戶。
+        
+    Returns:
+        成功信息。
     """
-    entry = DiaryEntry.get_by_id(entry_id=entry_id, user_id=current_user.id)
+    # 先確認日記存在且屬於當前用戶
+    diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+    if not diary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diary not found"
+        )
+    
+    entry = DiaryEntry.get_by_id(entry_id=entry_id, diary_id=diary.id)
     
     if not entry:
         raise HTTPException(
@@ -232,6 +512,16 @@ async def delete_diary_entry(
     
     try:
         entry.delete()
+        
+        # 更新日記的更新時間
+        diary.updated_at = datetime.datetime.utcnow()
+        diary.save()
+        
+        return {
+            "status": "success",
+            "data": None,
+            "message": "Entry deleted successfully"
+        }
     except Exception as e:
         logger.error(f"Error deleting diary entry: {e}")
         raise HTTPException(
@@ -240,7 +530,7 @@ async def delete_diary_entry(
         )
 
 
-@router.post("/search", response_model=DiaryEntryList)
+@router.post("/search", response_model=ApiResponse)
 async def search_diary_entries(
     search_params: DiaryEntrySearchParams,
     page: int = Query(1, ge=1),
@@ -295,14 +585,24 @@ async def search_diary_entries(
         # Get paginated entries
         entries = DiaryEntry.objects(**query).order_by("-created_at").skip(skip).limit(limit)
         
+        # 計算總頁數
+        pages = (total + limit - 1) // limit  # 向上取整
+        
         # 轉換為字典列表
         entry_dicts = [entry.to_dict() for entry in entries]
         
-        return {
-            "items": entry_dicts,
+        entries_data = {
+            "entries": entry_dicts,
             "total": total,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "pages": pages
+        }
+        
+        return {
+            "status": "success",
+            "data": entries_data,
+            "message": "Entries search completed successfully"
         }
     except Exception as e:
         logger.error(f"Error searching diary entries: {e}")

@@ -117,7 +117,8 @@ async def find_or_create_user(
             full_name=name,
             profile_picture=picture,
             google_id=google_id,
-            last_login=datetime.datetime.utcnow()
+            last_login=datetime.datetime.utcnow(),
+            preferences={}  # 初始化為空字典
         )
         user.save()
     else:
@@ -127,6 +128,23 @@ async def find_or_create_user(
             user.google_id = google_id
         if picture and not user.profile_picture:
             user.profile_picture = picture
+            
+        # 處理 preferences 欄位從列表轉為字典的遷移
+        if hasattr(user, 'preferences'):
+            # 檢查 preferences 是否為列表，如果是列表則轉換為字典
+            if isinstance(user.preferences, list):
+                logger.info(f"Converting preferences from list to dict for user: {user.id}")
+                # 將舊的列表格式轉為新的字典格式
+                prefs_dict = {}
+                for i, pref in enumerate(user.preferences):
+                    if isinstance(pref, str):
+                        # 如果是字符串，則使用索引作為鍵
+                        prefs_dict[f"pref_{i}"] = pref
+                user.preferences = prefs_dict
+            elif user.preferences is None:
+                # 如果 preferences 為 None，設置為空字典
+                user.preferences = {}
+                
         user.save()
     
     return user

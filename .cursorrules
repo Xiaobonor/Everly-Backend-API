@@ -25,8 +25,76 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - When searching for recent news, use the current year (2025) instead of previous years, or simply use the "recent" keyword to get the latest information
 - Google OAuth認證時，redirect_uri必須完全匹配Google Cloud Console中配置的重定向URI，包括協議(http/https)、大小寫和尾部斜線。不匹配會導致401錯誤。
 - 在多平台OAuth認證中，移動應用（如iOS）與後端服務器使用的OAuth客戶端可能不兼容。iOS應用通常只有客戶端ID而無客戶端密鑰，最佳實踐是讓移動端完成完整OAuth流程並將訪問令牌傳給後端，而非傳遞授權碼。
+- 在Pydantic模型中，使用`Field`類為字段添加詳細的描述和驗證規則，例如`Field(None, description="User interface language preference")`
+- 存儲用戶偏好設置時，使用字典（MongoDB中的DictField）比列表更靈活，便於添加和更新各種設置而不影響現有數據
+- 在數據模型結構變更後，需要處理現有數據的遷移問題。例如，將MongoDB中的ListField改為DictField時，需要添加遷移代碼將現有列表數據轉換為字典格式，避免ValidationError
+- 在使用FastAPI處理文件上傳功能時，需要安裝python-multipart套件，否則會出現'Form data requires "python-multipart" to be installed'的錯誤
+- 若要通過FastAPI提供靜態文件訪問（如上傳的圖片），需要使用app.mount("/static", StaticFiles(directory="static"), name="static")掛載靜態目錄，並確保相應的目錄結構存在
 
 # Scratchpad
+
+## Task: 修復Google OAuth認證錯誤
+
+用戶遇到了在Google OAuth認證過程中的錯誤：
+```
+ValidationError (User:68164baddf0b4213c7e137ed) (Only dictionaries may be used in a DictField: ['preferences'])
+```
+
+### 問題分析：
+[X] 檢查錯誤日誌，確定問題所在
+[X] 分析錯誤原因：將preferences欄位從ListField改為DictField後，現有用戶的數據格式不匹配
+[X] 查看相關代碼：app/services/auth.py中的find_or_create_user函數
+
+### 解決方案：
+[X] 修改find_or_create_user函數，添加處理preferences從列表到字典的轉換邏輯
+[X] 為新用戶正確初始化preferences為空字典而非默認的None
+[X] 記錄經驗教訓以供未來參考
+
+實施的修改：
+1. 添加轉換代碼，檢測preferences是否為列表，如是則轉換為字典
+2. 轉換時將列表中的字符串項目保留，以鍵"pref_x"存儲
+3. 確保新用戶和preferences為None的用戶都初始化為空字典
+
+## Task: 使用者設定API優化
+
+用戶要求增加設定相關的API功能，包括：
+1. 語言設定
+2. 主題色設定
+3. 用戶名稱修改
+4. 頭像重新上傳
+
+### 計劃：
+[X] 分析當前代碼庫結構
+[X] 修改schemas/user.py以支持新的數據模型
+[X] 更新db/models/user.py，將preferences改為字典
+[X] 創建media服務，添加上傳頭像功能
+[X] 更新API端點支持新功能
+[X] 更新前端開發指南
+
+### 實現內容：
+1. 用戶偏好設定功能
+   - 添加了語言設定（language）
+   - 添加了主題色設定（theme）
+   - 使用了鍵值對數據結構存儲偏好，便於擴展
+
+2. 個人資料更新功能
+   - 支持更改用戶名稱
+   - 添加了專門的頭像上傳端點
+
+3. 前端開發指南更新
+   - 添加了新API端點的文檔
+   - 提供了完整的請求/響應示例
+   - 添加了React前端實現示例代碼
+   - 說明了如何使用國際化庫
+
+### 需要安裝的依賴：
+- aiofiles：用於異步文件操作
+
+### 後續優化方向：
+- 添加更多可自定義的偏好設定
+- 支持更複雜的主題設定（顏色、字體等）
+- 實現圖片壓縮和裁剪功能
+- 添加CRUD操作的自動化測試
 
 ## Task: Google OAuth認證問題排查
 

@@ -1,12 +1,12 @@
 """Authentication endpoints."""
 
 import logging
-from typing import Any
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.schemas.auth import AuthResponse, GoogleAuthRequest
-from app.schemas.user import UserResponse
+from app.schemas.auth import AuthResponse, GoogleAuthRequest, AuthData
+from app.schemas.user import UserResponse, ApiResponse
 from app.services.auth import (
     create_access_token,
     find_or_create_user,
@@ -88,14 +88,16 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
         )
         logger.info("JWT access token created successfully")
         
-        return {
-            "status": "success",
-            "data": {
-                "access_token": access_token,
-                "token_type": "bearer"
-            },
-            "message": "Authentication successful"
-        }
+        auth_data = AuthData(
+            access_token=access_token,
+            token_type="bearer"
+        )
+        
+        return AuthResponse(
+            status="success",
+            data=auth_data,
+            message="Authentication successful"
+        )
     except Exception as e:
         # 記錄具體的錯誤信息和堆棧跟踪
         logger.error(f"Google authentication error: {e}", exc_info=True)
@@ -105,7 +107,7 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
         )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=ApiResponse)
 async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
     """
     Get current authenticated user information.
@@ -116,13 +118,23 @@ async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
     Returns:
         User information.
     """
-    # 將 User 實例轉換為字典，確保 id 被轉換為字符串
-    return {
+    preferences_list = []
+    if current_user.preferences:
+        for key, value in current_user.preferences.items():
+            preferences_list.append({"key": key, "value": value})
+    
+    user_data = {
         "id": str(current_user.id),
         "email": current_user.email,
         "full_name": current_user.full_name,
         "profile_picture": current_user.profile_picture,
         "is_active": current_user.is_active,
         "created_at": current_user.created_at,
-        "preferences": current_user.preferences or []
+        "preferences": preferences_list
+    }
+            
+    return {
+        "status": "success",
+        "data": user_data,
+        "message": "User information retrieved successfully"
     } 
