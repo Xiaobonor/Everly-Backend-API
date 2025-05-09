@@ -37,17 +37,25 @@ async def get_diaries(current_user: User = Depends(get_current_user)) -> Any:
     Returns:
         日記列表。
     """
+    logger.info(f"API 請求 GET /diaries - 用戶ID: {current_user.id}")
+    logger.debug(f"獲取用戶所有日記 - 請求開始處理")
+    
     try:
+        logger.debug(f"從數據庫查詢用戶 {current_user.id} 的所有日記")
         diaries = Diary.get_by_user(user_id=current_user.id)
-        diaries_data = [diary.to_dict() for diary in diaries]
+        logger.debug(f"找到 {len(diaries)} 個日記")
         
+        diaries_data = [diary.to_dict() for diary in diaries]
+        logger.debug(f"日記數據轉換完成")
+        
+        logger.info(f"API 請求 GET /diaries 完成 - 用戶ID: {current_user.id}, 共返回 {len(diaries)} 個日記")
         return {
             "status": "success",
             "data": diaries_data,
             "message": "Diaries retrieved successfully"
         }
     except Exception as e:
-        logger.error(f"Error retrieving diaries: {e}")
+        logger.error(f"獲取日記時發生錯誤 - 用戶ID: {current_user.id}, 錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while retrieving diaries"
@@ -66,7 +74,11 @@ async def create_diary(diary: DiaryCreate, current_user: User = Depends(get_curr
     Returns:
         創建的日記。
     """
+    logger.info(f"API 請求 POST /diaries - 用戶ID: {current_user.id}")
+    logger.debug(f"創建新日記 - 標題: '{diary.title}'")
+    
     try:
+        logger.debug(f"準備創建新日記對象 - 用戶ID: {current_user.id}, 標題: '{diary.title}'")
         new_diary = Diary(
             user=current_user,
             title=diary.title,
@@ -74,14 +86,16 @@ async def create_diary(diary: DiaryCreate, current_user: User = Depends(get_curr
             cover_image=diary.cover_image
         )
         new_diary.save()
+        logger.debug(f"新日記已保存到數據庫 - 日記ID: {new_diary.id}")
         
+        logger.info(f"API 請求 POST /diaries 完成 - 用戶ID: {current_user.id}, 日記ID: {new_diary.id}")
         return {
             "status": "success",
             "data": new_diary.to_dict(),
             "message": "Diary created successfully"
         }
     except Exception as e:
-        logger.error(f"Error creating diary: {e}")
+        logger.error(f"創建日記時發生錯誤 - 用戶ID: {current_user.id}, 錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while creating the diary"
@@ -103,19 +117,36 @@ async def get_diary(
     Returns:
         日記詳細信息。
     """
-    diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+    logger.info(f"API 請求 GET /diaries/{diary_id} - 用戶ID: {current_user.id}")
+    logger.debug(f"獲取日記詳細信息 - 日記ID: {diary_id}")
     
-    if not diary:
+    try:
+        logger.debug(f"從數據庫查詢日記 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
+        diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        
+        if not diary:
+            logger.warning(f"日記未找到 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diary not found"
+            )
+        
+        logger.debug(f"日記找到 - 標題: '{diary.title}'")
+        logger.info(f"API 請求 GET /diaries/{diary_id} 完成 - 用戶ID: {current_user.id}")
+        
+        return {
+            "status": "success",
+            "data": diary.to_dict(),
+            "message": "Diary retrieved successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"獲取日記詳情時發生錯誤 - 日記ID: {diary_id}, 用戶ID: {current_user.id}, 錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Diary not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while retrieving the diary"
         )
-    
-    return {
-        "status": "success",
-        "data": diary.to_dict(),
-        "message": "Diary retrieved successfully"
-    }
 
 
 @router.put("/{diary_id}", response_model=ApiResponse)
@@ -135,29 +166,39 @@ async def update_diary(
     Returns:
         更新後的日記信息。
     """
+    logger.info(f"API 請求 PUT /diaries/{diary_id} - 用戶ID: {current_user.id}")
+    update_data = diary_update.dict(exclude_unset=True, exclude_none=True)
+    logger.debug(f"更新日記 - 日記ID: {diary_id}, 更新字段: {', '.join(update_data.keys())}")
+    
     try:
+        logger.debug(f"從數據庫查詢日記 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
         diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
         
         if not diary:
+            logger.warning(f"日記未找到 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Diary not found"
             )
         
-        update_data = diary_update.dict(exclude_unset=True, exclude_none=True)
-        
+        logger.debug(f"日記找到，開始更新字段 - 日記ID: {diary_id}")
         for field, value in update_data.items():
+            logger.debug(f"更新字段: {field} = {value}")
             setattr(diary, field, value)
         
         diary.save()
+        logger.debug(f"日記更新已保存到數據庫 - 日記ID: {diary_id}")
         
+        logger.info(f"API 請求 PUT /diaries/{diary_id} 完成 - 用戶ID: {current_user.id}")
         return {
             "status": "success",
             "data": diary.to_dict(),
             "message": "Diary updated successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error updating diary: {e}")
+        logger.error(f"更新日記時發生錯誤 - 日記ID: {diary_id}, 用戶ID: {current_user.id}, 錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while updating the diary"
@@ -179,28 +220,40 @@ async def delete_diary(
     Returns:
         成功信息。
     """
-    diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
-    
-    if not diary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Diary not found"
-        )
+    logger.info(f"API 請求 DELETE /diaries/{diary_id} - 用戶ID: {current_user.id}")
+    logger.debug(f"刪除日記 - 日記ID: {diary_id}")
     
     try:
+        logger.debug(f"從數據庫查詢日記 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
+        diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        
+        if not diary:
+            logger.warning(f"日記未找到 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Diary not found"
+            )
+        
         # 刪除該日記的所有條目
+        logger.debug(f"刪除日記的所有條目 - 日記ID: {diary_id}")
+        entries_count = DiaryEntry.objects(diary=diary.id).count()
         DiaryEntry.objects(diary=diary.id).delete()
+        logger.debug(f"已刪除 {entries_count} 個日記條目")
         
         # 刪除日記
+        logger.debug(f"刪除日記本身 - 日記ID: {diary_id}, 標題: '{diary.title}'")
         diary.delete()
         
+        logger.info(f"API 請求 DELETE /diaries/{diary_id} 完成 - 用戶ID: {current_user.id}, 已刪除日記及 {entries_count} 個條目")
         return {
             "status": "success",
             "data": None,
             "message": "Diary deleted successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error deleting diary: {e}")
+        logger.error(f"刪除日記時發生錯誤 - 日記ID: {diary_id}, 用戶ID: {current_user.id}, 錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the diary"
@@ -217,61 +270,70 @@ async def get_diary_entries(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
-    獲取特定日記的條目列表。
+    獲取特定日記的所有條目（分頁）。
     
     Args:
         diary_id: 日記ID。
         page: 頁碼，從1開始。
-        limit: 每頁項目數。
-        sort: 排序順序，"asc"或"desc"。
+        limit: 每頁條目數。
+        sort: 排序方式，"asc"為升序，"desc"為降序。
         current_user: 當前認證用戶。
         
     Returns:
-        日記條目分頁列表。
+        日記條目列表。
     """
+    logger.info(f"API 請求 GET /diaries/{diary_id}/entries - 用戶ID: {current_user.id}")
+    logger.debug(f"獲取日記條目 - 日記ID: {diary_id}, 頁碼: {page}, 每頁: {limit}, 排序: {sort}")
+    
     try:
-        # 先確認日記存在且屬於當前用戶
+        # 確認日記存在且屬於當前用戶
+        logger.debug(f"驗證日記存在性 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
         diary = Diary.get_by_id(diary_id=diary_id, user_id=current_user.id)
+        
         if not diary:
+            logger.warning(f"日記未找到 - 日記ID: {diary_id}, 用戶ID: {current_user.id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Diary not found"
             )
         
-        skip = (page - 1) * limit
-        
-        # 獲取總數
-        total = DiaryEntry.objects(diary=diary.id).count()
-        
-        # 獲取分頁條目
-        entries = DiaryEntry.get_by_diary(
-            diary_id=diary.id, 
-            limit=limit, 
-            skip=skip,
+        logger.debug(f"查詢日記條目 - 日記ID: {diary_id}, 排序: {sort}")
+        entries, total = DiaryEntry.get_by_diary(
+            diary_id=diary_id,
+            page=page,
+            limit=limit,
             sort=sort
         )
         
-        # 計算總頁數
-        pages = (total + limit - 1) // limit  # 向上取整
+        logger.debug(f"找到 {len(entries)} 個條目，共 {total} 個")
         
-        # 轉換為字典列表
-        entry_dicts = [entry.to_dict() for entry in entries]
+        # 計算頁數
+        total_pages = (total + limit - 1) // limit
         
-        entries_data = {
-            "entries": entry_dicts,
+        # 轉換為響應格式
+        entries_data = [entry.to_dict() for entry in entries]
+        
+        pagination = {
             "total": total,
             "page": page,
             "limit": limit,
-            "pages": pages
+            "total_pages": total_pages
         }
+        
+        logger.info(f"API 請求 GET /diaries/{diary_id}/entries 完成 - 用戶ID: {current_user.id}, 返回 {len(entries)} 個條目")
         
         return {
             "status": "success",
-            "data": entries_data,
-            "message": "Entries retrieved successfully"
+            "data": {
+                "entries": entries_data,
+                "pagination": pagination
+            },
+            "message": "Diary entries retrieved successfully"
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error retrieving diary entries: {e}")
+        logger.error(f"獲取日記條目時發生錯誤 - 日記ID: {diary_id}, 用戶ID: {current_user.id}, 錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while retrieving diary entries"

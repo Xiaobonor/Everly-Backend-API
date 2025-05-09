@@ -30,14 +30,14 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
     Returns:
         Authentication response with JWT access token.
     """
-    logger.info("Received Google authentication request")
+    logger.info("API 請求 POST /auth/google - 開始處理 Google 認證")
     
     # 記錄認證請求的基本信息
     token_length = len(auth_request.token) if auth_request.token else 0
-    logger.info(f"Google OAuth token length: {token_length}")
+    logger.info(f"Google OAuth 令牌長度: {token_length}")
     
     if not auth_request.token:
-        logger.error("Empty Google OAuth token received")
+        logger.error("收到空的 Google OAuth 令牌")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Google OAuth token is required"
@@ -45,11 +45,11 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
     
     try:
         # 記錄開始驗證令牌並獲取用戶信息
-        logger.info("Starting token verification and user info retrieval")
+        logger.info("開始驗證令牌並獲取用戶信息")
         
         # Verify token and get user info
         user_info = await verify_google_token(auth_request.token)
-        logger.info("Successfully verified token and retrieved user info")
+        logger.info("成功驗證令牌並獲取用戶信息")
         
         # Extract user data
         email = user_info.get("email")
@@ -58,17 +58,17 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
         google_id = user_info.get("sub")  # Google's user ID
         
         # 記錄用戶信息
-        logger.info(f"User info retrieved - email: {email}, name: {name}, google_id present: {bool(google_id)}")
+        logger.info(f"獲取到用戶信息 - 郵箱: {email}, 姓名: {name}, 是否有Google ID: {bool(google_id)}")
         
         if not email:
-            logger.error("Email not provided by Google authentication")
+            logger.error("Google 認證未提供郵箱")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email not provided by Google authentication"
             )
         
         # 記錄查找或創建用戶
-        logger.info(f"Finding or creating user with email: {email}")
+        logger.info(f"查找或創建郵箱為 {email} 的用戶")
         
         # Find or create user
         user = await find_or_create_user(
@@ -77,21 +77,23 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
             picture=picture,
             google_id=google_id
         )
-        logger.info(f"User found or created with ID: {user.id}")
+        logger.info(f"已找到或創建用戶，ID: {user.id}")
         
         # 記錄創建訪問令牌
-        logger.info("Creating JWT access token")
+        logger.info("創建 JWT 訪問令牌")
         
         # Create access token
         access_token = create_access_token(
             data={"sub": str(user.id), "email": user.email}
         )
-        logger.info("JWT access token created successfully")
+        logger.info("JWT 訪問令牌創建成功")
         
         auth_data = AuthData(
             access_token=access_token,
             token_type="bearer"
         )
+        
+        logger.info(f"API 請求 POST /auth/google 完成 - 用戶 {email} 登入成功")
         
         return AuthResponse(
             status="success",
@@ -100,7 +102,7 @@ async def login_with_google(auth_request: GoogleAuthRequest) -> Any:
         )
     except Exception as e:
         # 記錄具體的錯誤信息和堆棧跟踪
-        logger.error(f"Google authentication error: {e}", exc_info=True)
+        logger.error(f"Google 認證錯誤: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed"
@@ -118,9 +120,16 @@ async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
     Returns:
         User information.
     """
+    logger.info(f"API 請求 GET /auth/me - 用戶ID: {current_user.id}")
+    logger.debug(f"獲取當前認證用戶信息 - 請求開始處理")
+    
     preferences_list = []
     if current_user.preferences:
+        logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
         for key, value in current_user.preferences.items():
+            if isinstance(value, bytes):
+                import base64
+                value = base64.b64encode(value).decode('ascii')
             preferences_list.append({"key": key, "value": value})
     
     user_data = {
@@ -132,6 +141,9 @@ async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
         "created_at": current_user.created_at,
         "preferences": preferences_list
     }
+    
+    logger.debug(f"用戶信息獲取成功 - 響應準備完成")
+    logger.info(f"API 請求 GET /auth/me 完成 - 用戶ID: {current_user.id}")
             
     return {
         "status": "success",

@@ -30,99 +30,66 @@ The goal is to help you maintain a big picture as well as the progress of the ta
 - 在數據模型結構變更後，需要處理現有數據的遷移問題。例如，將MongoDB中的ListField改為DictField時，需要添加遷移代碼將現有列表數據轉換為字典格式，避免ValidationError
 - 在使用FastAPI處理文件上傳功能時，需要安裝python-multipart套件，否則會出現'Form data requires "python-multipart" to be installed'的錯誤
 - 若要通過FastAPI提供靜態文件訪問（如上傳的圖片），需要使用app.mount("/static", StaticFiles(directory="static"), name="static")掛載靜態目錄，並確保相應的目錄結構存在
+- 處理文件上傳時，FastAPI不直接支持設置最大文件大小限制，需要使用Starlette中間件來實現。最佳實踐是創建自定義中間件類繼承BaseHTTPMiddleware，檢查請求的Content-Length標頭
+- 處理二進制文件時，應避免將其當作文本處理，以防出現UnicodeDecodeError。使用`with open(file_path, "wb") as f`或`async with aiofiles.open(file_path, "wb") as f`確保以二進制模式讀寫文件
+- 在異步處理上傳文件時，可以使用content = await file.read()獲取文件內容，然後用await out_file.write(content)將內容寫入目標文件，確保正確處理大文件而不阻塞事件循環
+- 當API響應中包含二進制數據時，不要直接返回二進制數據，而應該將其轉換為Base64編碼的字符串。在Python中可以使用`base64.b64encode(binary_data).decode('ascii')`進行轉換
+- FastAPI的jsonable_encoder會嘗試將bytes類型自動以UTF-8編碼解碼為字符串，這可能導致UnicodeDecodeError。處理二進制數據時，應該在返回前將其轉換為Base64或處理為適當的格式
+- 在處理可能包含各種數據類型（包括二進制數據）的用戶輸入時，應該添加專門的UnicodeDecodeError異常處理，並在全局異常處理器中加入對此類錯誤的處理
+- 當客戶端提交二進制數據到偏好設定API時，需要在應用程序的多個層面進行處理：1)在Pydantic模型中檢測並轉換bytes類型；2)在API端點處理函數中添加專門的異常處理；3)在全局異常處理中提供明確的錯誤信息
+- 在FastAPI應用中添加請求日誌中間件可以提供更全面的請求追踪。通過繼承BaseHTTPMiddleware類，可以記錄請求開始和結束時間、請求方法、路徑、處理時間和結果。這有助於性能監控和故障排除。
+- 在Python日誌記錄中，使用`exc_info=True`參數記錄異常時可以捕獲完整的堆棧跟踪，這對於調試生產環境中的錯誤非常有用。
 
 # Scratchpad
 
-## Task: 修復Google OAuth認證錯誤
-
-用戶遇到了在Google OAuth認證過程中的錯誤：
-```
-ValidationError (User:68164baddf0b4213c7e137ed) (Only dictionaries may be used in a DictField: ['preferences'])
-```
+## Task: 增加更多的日誌記錄到API端點
 
 ### 問題分析：
-[X] 檢查錯誤日誌，確定問題所在
-[X] 分析錯誤原因：將preferences欄位從ListField改為DictField後，現有用戶的數據格式不匹配
-[X] 查看相關代碼：app/services/auth.py中的find_or_create_user函數
+[X] 分析項目結構，確定API端點的實現位置
+[X] 檢查現有的日誌設置和記錄模式
+[X] 規劃在API端點中添加詳細日誌記錄的方式
 
 ### 解決方案：
-[X] 修改find_or_create_user函數，添加處理preferences從列表到字典的轉換邏輯
-[X] 為新用戶正確初始化preferences為空字典而非默認的None
-[X] 記錄經驗教訓以供未來參考
+[X] 修改users.py文件，為所有用戶相關API端點添加詳細日誌
+[X] 修改auth.py文件，為認證相關API端點添加詳細日誌
+[X] 修改diaries.py文件，為日記相關API端點添加詳細日誌
+[X] 修改media.py文件，為媒體上傳API端點添加詳細日誌
+[X] 在app/main.py中添加請求日誌中間件，記錄每個HTTP請求的詳細信息
 
-實施的修改：
-1. 添加轉換代碼，檢測preferences是否為列表，如是則轉換為字典
-2. 轉換時將列表中的字符串項目保留，以鍵"pref_x"存儲
-3. 確保新用戶和preferences為None的用戶都初始化為空字典
+### 實施的修改：
+1. 在用戶API端點(app/api/v1/endpoints/users.py)中：
+   - 在每個API端點開始時記錄請求信息
+   - 在處理過程中記錄關鍵步驟
+   - 在請求結束時記錄完成信息
+   - 詳細記錄異常和錯誤
 
-## Task: 使用者設定API優化
+2. 在認證API端點(app/api/v1/endpoints/auth.py)中：
+   - 將所有日誌訊息改為繁體中文
+   - 添加更詳細的認證過程記錄
+   - 改進錯誤和異常記錄
 
-用戶要求增加設定相關的API功能，包括：
-1. 語言設定
-2. 主題色設定
-3. 用戶名稱修改
-4. 頭像重新上傳
+3. 在日記API端點(app/api/v1/endpoints/diaries.py)中：
+   - 為所有日記和日記條目操作添加詳細日誌
+   - 記錄數據庫操作和結果
+   - 改進異常處理和錯誤記錄
 
-### 計劃：
-[X] 分析當前代碼庫結構
-[X] 修改schemas/user.py以支持新的數據模型
-[X] 更新db/models/user.py，將preferences改為字典
-[X] 創建media服務，添加上傳頭像功能
-[X] 更新API端點支持新功能
-[X] 更新前端開發指南
+4. 在媒體API端點(app/api/v1/endpoints/media.py)中：
+   - 記錄媒體文件上傳的詳細信息
+   - 改進錯誤處理和日誌記錄
 
-### 實現內容：
-1. 用戶偏好設定功能
-   - 添加了語言設定（language）
-   - 添加了主題色設定（theme）
-   - 使用了鍵值對數據結構存儲偏好，便於擴展
+5. 在主應用模塊(app/main.py)中：
+   - 添加請求日誌中間件，記錄所有HTTP請求
+   - 記錄請求開始時間、處理時間和完成狀態
+   - 為大小限制中間件添加更詳細的日誌
+   - 改進全局異常處理器的日誌記錄
+   - 改進應用程序啟動和關閉事件的日誌記錄
 
-2. 個人資料更新功能
-   - 支持更改用戶名稱
-   - 添加了專門的頭像上傳端點
-
-3. 前端開發指南更新
-   - 添加了新API端點的文檔
-   - 提供了完整的請求/響應示例
-   - 添加了React前端實現示例代碼
-   - 說明了如何使用國際化庫
-
-### 需要安裝的依賴：
-- aiofiles：用於異步文件操作
-
-### 後續優化方向：
-- 添加更多可自定義的偏好設定
-- 支持更複雜的主題設定（顏色、字體等）
-- 實現圖片壓縮和裁剪功能
-- 添加CRUD操作的自動化測試
-
-## Task: Google OAuth認證問題排查
-
-用戶遇到了Google OAuth認證失敗的問題，顯示401 Unauthorized錯誤。
-
-### 問題分析:
-[X] 查看錯誤日誌
-[X] 檢查OAuth配置相關代碼
-[X] 檢查環境變數配置
-[X] 了解Google OAuth常見錯誤原因
-[X] 提出解決方案
-[X] 實施解決方案
-
-### 發現:
-1. 在嘗試用授權碼換取令牌時出現401 Unauthorized錯誤
-2. .env中已配置Google OAuth相關憑據
-3. 問題根本原因：iOS應用使用Google OAuth客戶端ID獲取授權碼，而後端使用不同的OAuth客戶端（帶密鑰）嘗試交換令牌
-
-### 解決方案:
-1. 修改認證流程，改為iOS應用完成完整的OAuth流程（包括獲取訪問令牌）
-2. 後端接受Google訪問令牌而非授權碼
-3. 更新相關API端點和文檔
-
-### 實施步驟:
-[X] 修改 app/schemas/auth.py 中的 GoogleAuthRequest 模型，改為接受訪問令牌而非授權碼
-[X] 修改 app/api/v1/endpoints/auth.py 中的 login_with_google 端點，改為直接驗證訪問令牌
-[X] 優化 app/services/auth.py 中的 verify_google_token 函數，刪除不再需要的 exchange_code_for_token 函數
-[X] 更新前端開發者文檔，說明新的認證流程
+### 成果：
+- 所有API端點現在都有詳細的日誌記錄，包括請求開始、處理過程和完成時的記錄
+- 添加了一個全局請求日誌中間件，記錄每個HTTP請求的詳細信息
+- 改進了錯誤和異常的日誌記錄，更容易診斷問題
+- 所有日誌都使用繁體中文，更容易理解和分析
+- 添加了請求ID以便於追踪整個請求流程
 
 ## Task: Generate Technical Documentation for Frontend Developers
 

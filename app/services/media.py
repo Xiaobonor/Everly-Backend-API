@@ -17,6 +17,10 @@ UPLOAD_DIR = Path("static/uploads")
 PROFILE_UPLOAD_DIR = UPLOAD_DIR / "profiles"
 MEDIA_UPLOAD_DIR = UPLOAD_DIR / "media"
 
+# 文件大小限制
+MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+MAX_MEDIA_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
 
 async def ensure_upload_dirs():
     """Ensure upload directories exist."""
@@ -52,13 +56,26 @@ async def upload_profile_image(file: UploadFile) -> str:
     file_path = PROFILE_UPLOAD_DIR / unique_filename
     
     try:
+        # 獲取文件內容
+        content = await file.read()
+        file_size = len(content)
+        
+        # 檢查文件大小
+        if file_size > MAX_PROFILE_IMAGE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File size exceeds the limit ({MAX_PROFILE_IMAGE_SIZE // (1024 * 1024)}MB)"
+            )
+        
         # 寫入文件
         async with aiofiles.open(file_path, "wb") as out_file:
-            content = await file.read()
             await out_file.write(content)
         
         # 返回URL (相對於API根目錄)
         return f"/static/uploads/profiles/{unique_filename}"
+    except HTTPException:
+        # 重新拋出HTTP異常
+        raise
     except Exception as e:
         logger.error(f"Error uploading profile image: {e}")
         raise HTTPException(
@@ -112,19 +129,18 @@ async def upload_media_file(file: UploadFile) -> Dict:
     file_path = MEDIA_UPLOAD_DIR / unique_filename
     
     try:
-        # 讀取文件內容
+        # 安全讀取文件內容（使用二進制模式）
         content = await file.read()
         file_size = len(content)
         
-        # 檢查文件大小（限制為20MB）
-        max_size = 20 * 1024 * 1024  # 20 MB in bytes
-        if file_size > max_size:
+        # 檢查文件大小（限制現在為50MB）
+        if file_size > MAX_MEDIA_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="File size exceeds the limit (20MB)"
+                detail=f"File size exceeds the limit ({MAX_MEDIA_FILE_SIZE // (1024 * 1024)}MB)"
             )
         
-        # 寫入文件
+        # 直接寫入二進制數據
         async with aiofiles.open(file_path, "wb") as out_file:
             await out_file.write(content)
         
@@ -132,13 +148,14 @@ async def upload_media_file(file: UploadFile) -> Dict:
         return {
             "url": f"/static/uploads/media/{unique_filename}",
             "type": media_type,
-            "size": file_size
+            "size": file_size,
+            "filename": unique_filename
         }
     except HTTPException:
         # 重新拋出HTTP異常
         raise
     except Exception as e:
-        logger.error(f"Error uploading media file: {e}")
+        logger.error(f"Error uploading media file: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not upload the file"

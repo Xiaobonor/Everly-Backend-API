@@ -1,7 +1,8 @@
 """User schemas for request and response validation."""
 
 import datetime
-from typing import List, Optional, Dict, Any
+import base64
+from typing import List, Optional, Dict, Any, Union
 
 from pydantic import BaseModel, EmailStr, HttpUrl, Field
 
@@ -10,7 +11,7 @@ class PreferenceModel(BaseModel):
     """Schema for a user preference."""
     
     key: str
-    value: str
+    value: Any
 
 
 class UserBase(BaseModel):
@@ -40,14 +41,25 @@ class UserPreferenceUpdate(BaseModel):
     
     language: Optional[str] = Field(None, description="User interface language preference (e.g., 'en', 'zh-TW')")
     theme: Optional[str] = Field(None, description="User interface theme preference (e.g., 'light', 'dark')")
+    custom_settings: Optional[Dict[str, Any]] = Field(None, description="Custom user settings")
     
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format for storage."""
         result = {}
         if self.language:
             result["language"] = self.language
         if self.theme:
             result["theme"] = self.theme
+        if self.custom_settings:
+            for key, value in self.custom_settings.items():
+                # 確保字典中的鍵是字符串
+                str_key = str(key)
+                
+                # 如果值是二進制數據，轉換為Base64字符串
+                if isinstance(value, bytes):
+                    value = base64.b64encode(value).decode('ascii')
+                
+                result[str_key] = value
         return result
 
 
