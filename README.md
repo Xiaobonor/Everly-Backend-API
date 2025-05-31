@@ -120,6 +120,16 @@ black app tests
 
 # Sort imports
 isort app tests
+
+### Pre-commit Hooks
+
+This project uses pre-commit to enforce consistent code style and quality. To install and run hooks locally:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
 ```
 
 ### Code Linting

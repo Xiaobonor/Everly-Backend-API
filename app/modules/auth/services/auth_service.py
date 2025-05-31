@@ -32,7 +32,7 @@ class AuthService:
         """Initialize the service with database and cache connections."""
         self._db = db
         self._redis = redis
-        self.logger.info("認證服務初始化完成")
+        self.logger.info("Authentication service initialized successfully")
     
     async def verify_google_token(self, token: str) -> Dict:
         """
@@ -149,20 +149,20 @@ class AuthService:
             if picture and not user.profile_picture:
                 user.profile_picture = picture
                 
-            # 處理 preferences 欄位從列表轉為字典的遷移
+            # Handle migration of preferences field from list to dict
             if hasattr(user, 'preferences'):
-                # 檢查 preferences 是否為列表，如果是列表則轉換為字典
+                # Check if preferences is a list; if so, convert to dict
                 if isinstance(user.preferences, list):
                     self.logger.info(f"Converting preferences from list to dict for user: {user.id}")
-                    # 將舊的列表格式轉為新的字典格式
+                    # Convert old list format to new dict format
                     prefs_dict = {}
                     for i, pref in enumerate(user.preferences):
                         if isinstance(pref, str):
-                            # 如果是字符串，則使用索引作為鍵
+                            # If item is string, use its index as the key
                             prefs_dict[f"pref_{i}"] = pref
                     user.preferences = prefs_dict
                 elif user.preferences is None:
-                    # 如果 preferences 為 None，設置為空字典
+                    # If preferences is None, set to empty dict
                     user.preferences = {}
                     
             user.save()

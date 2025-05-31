@@ -52,13 +52,13 @@ class UserPreferenceUpdate(BaseModel):
             result["theme"] = self.theme
         if self.custom_settings:
             for key, value in self.custom_settings.items():
-                # 確保字典中的鍵是字符串
+                # Ensure keys in the dictionary are strings
                 str_key = str(key)
-                
-                # 如果值是二進制數據，轉換為Base64字符串
+
+                # If the value is binary data, convert it to a Base64-encoded string
                 if isinstance(value, bytes):
                     value = base64.b64encode(value).decode('ascii')
-                
+
                 result[str_key] = value
         return result
 

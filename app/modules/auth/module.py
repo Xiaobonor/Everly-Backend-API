@@ -40,7 +40,7 @@ class AuthModule(BaseModule):
         self.auth_service = AuthService(self.config)
         self.auth_service.initialize(db, redis)
         
-        self.logger.info("認證模塊初始化完成")
+        self.logger.info("Authentication module initialized successfully")
     
     async def cleanup(self) -> None:
         """Cleanup authentication module resources."""
@@ -48,7 +48,7 @@ class AuthModule(BaseModule):
             # Perform any necessary cleanup
             pass
         
-        self.logger.info("認證模塊清理完成")
+        self.logger.info("Authentication module cleanup complete")
     
     async def health_check(self) -> dict:
         """Perform health check for authentication module."""

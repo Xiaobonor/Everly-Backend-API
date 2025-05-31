@@ -20,12 +20,12 @@ class DependencyContainer:
     def register_service(self, name: str, service_instance: Any) -> None:
         """Register a service instance."""
         self._services[name] = service_instance
-        self.logger.debug(f"註冊服務: {name}")
+        self.logger.debug(f"Registered service: {name}")
     
     def register_singleton(self, name: str, instance: Any) -> None:
         """Register a singleton instance."""
         self._singletons[name] = instance
-        self.logger.debug(f"註冊單例: {name}")
+        self.logger.debug(f"Registered singleton: {name}")
     
     def get_service(self, name: str) -> Optional[Any]:
         """Get a service by name."""
@@ -55,7 +55,7 @@ class DependencyContainer:
         """Clear all registered dependencies."""
         self._services.clear()
         self._singletons.clear()
-        self.logger.debug("清除所有依賴")
+        self.logger.debug("Cleared all dependencies")
 
 
 class ServiceRegistry:
@@ -79,7 +79,7 @@ class ServiceRegistry:
         if redis:
             self.container.register_singleton(f"{module_name}.redis", redis)
             
-        self.logger.debug(f"註冊模組 {module_name} 的基礎服務")
+        self.logger.debug(f"Registered base services for module {module_name}")
     
     def get_module_service(self, module_name: str, service_name: str) -> Optional[Any]:
         """Get a service for a specific module."""

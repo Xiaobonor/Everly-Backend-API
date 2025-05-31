@@ -33,7 +33,7 @@ class ModuleManager:
             raise ValueError(f"Module {module.name} is already registered")
         
         self.modules[module.name] = module
-        self.logger.info(f"註冊模塊: {module.name} v{module.version}")
+        self.logger.info(f"Registered module: {module.name} v{module.version}")
         
         # Register module in dependency container
         self.dependency_container.register_singleton(f"module.{module.name}", module)
@@ -64,7 +64,7 @@ class ModuleManager:
         if redis:
             self.dependency_container.register_singleton("shared.redis", redis)
         
-        self.logger.info(f"開始初始化 {len(self.modules)} 個模塊")
+        self.logger.info(f"Starting initialization of {len(self.modules)} modules")
         
         # Check dependencies
         await self._check_dependencies()
@@ -89,14 +89,14 @@ class ModuleManager:
                 )
                 
             except Exception as e:
-                self.logger.error(f"模塊 {module_name} 初始化失敗: {str(e)}")
+                self.logger.error(f"Module {module_name} initialization failed: {str(e)}")
                 raise
         
-        self.logger.info("所有模塊初始化完成")
+        self.logger.info("All modules have been initialized")
     
     async def cleanup_all(self) -> None:
         """Cleanup all modules."""
-        self.logger.info("開始清理所有模塊")
+        self.logger.info("Starting cleanup of all modules")
         
         # Cleanup in reverse order
         cleanup_tasks = []
@@ -113,7 +113,7 @@ class ModuleManager:
         # Clear event subscribers
         self.event_bus.clear_subscribers()
         
-        self.logger.info("所有模塊清理完成")
+        self.logger.info("All modules have been cleaned up")
     
     async def _cleanup_module(self, module: BaseModule) -> None:
         """Cleanup a single module."""
@@ -128,7 +128,7 @@ class ModuleManager:
             )
             
         except Exception as e:
-            self.logger.error(f"模塊 {module.name} 清理失敗: {str(e)}")
+            self.logger.error(f"Module {module.name} cleanup failed: {str(e)}")
     
     def create_main_router(self) -> APIRouter:
         """Create the main API router with all module routers."""
@@ -155,7 +155,7 @@ class ModuleManager:
                     prefix=prefix,
                     tags=[module.name]
                 )
-                self.logger.debug(f"已包含模塊 {module.name} 的路由，前綴: {prefix}")
+                self.logger.debug(f"Included routes for module {module.name} with prefix: {prefix}")
         
         return main_router
     
@@ -198,8 +198,8 @@ class ModuleManager:
         for module in self.modules.values():
             for dependency in module.dependencies:
                 if dependency not in self.modules:
-                    raise ValueError(
-                        f"模塊 {module.name} 的依賴 {dependency} 未找到"
+                        raise ValueError(
+                        f"Dependency {dependency} for module {module.name} not found"
                     )
     
     def _get_initialization_order(self) -> List[str]:
@@ -211,7 +211,7 @@ class ModuleManager:
         
         def visit(module_name: str):
             if module_name in temp_visited:
-                raise ValueError(f"檢測到循環依賴，涉及模塊 {module_name}")
+                raise ValueError(f"Circular dependency detected involving module {module_name}")
             
             if module_name not in visited:
                 temp_visited.add(module_name)

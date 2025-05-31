@@ -79,14 +79,14 @@ class EventBus:
             self._handlers[event_type] = []
         
         self._handlers[event_type].append(handler)
-        self.logger.debug(f"訂閱事件: {event_type} -> {handler.__name__}")
+        self.logger.debug(f"Subscribed to event: {event_type} -> {handler.__name__}")
     
     def unsubscribe(self, event_type: str, handler: Callable) -> bool:
         """Unsubscribe from an event type."""
         if event_type in self._handlers:
             try:
                 self._handlers[event_type].remove(handler)
-                self.logger.debug(f"取消訂閱事件: {event_type} -> {handler.__name__}")
+                self.logger.debug(f"Unsubscribed from event: {event_type} -> {handler.__name__}")
                 return True
             except ValueError:
                 pass
@@ -95,27 +95,27 @@ class EventBus:
     def add_middleware(self, middleware: Callable) -> None:
         """Add middleware for event processing."""
         self._middleware.append(middleware)
-        self.logger.debug(f"添加中間件: {middleware.__name__}")
+        self.logger.debug(f"Added middleware: {middleware.__name__}")
     
     async def publish(self, event: Event) -> None:
         """Publish an event to all subscribers."""
-        self.logger.debug(f"發布事件: {event.event_type} from {event.source_module}")
+        self.logger.debug(f"Publishing event: {event.event_type} from {event.source_module}")
         
         # Apply middleware
         for middleware in self._middleware:
             try:
                 event = await self._call_middleware(middleware, event)
                 if event is None:
-                    self.logger.debug("事件被中間件攔截")
+                    self.logger.debug("Event intercepted by middleware")
                     return
             except Exception as e:
-                self.logger.error(f"中間件處理錯誤: {e}")
+                self.logger.error(f"Middleware processing error: {e}")
                 continue
         
         # Call handlers
         handlers = self._handlers.get(event.event_type, [])
         if not handlers:
-            self.logger.debug(f"沒有訂閱者處理事件: {event.event_type}")
+            self.logger.debug(f"No subscribers for event: {event.event_type}")
             return
         
         # Execute handlers concurrently
@@ -128,11 +128,11 @@ class EventBus:
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     handler_name = handlers[i].__name__
-                    self.logger.error(f"事件處理器錯誤 {handler_name}: {result}")
+                    self.logger.error(f"Event handler error {handler_name}: {result}")
     
     async def publish_and_wait(self, event: Event) -> List[Any]:
         """Publish an event and wait for all handlers to complete."""
-        self.logger.debug(f"發布並等待事件: {event.event_type}")
+        self.logger.debug(f"Publishing and waiting for event: {event.event_type}")
         
         # Apply middleware
         for middleware in self._middleware:
@@ -141,7 +141,7 @@ class EventBus:
                 if event is None:
                     return []
             except Exception as e:
-                self.logger.error(f"中間件處理錯誤: {e}")
+                self.logger.error(f"Middleware processing error: {e}")
                 continue
         
         # Call handlers
@@ -165,7 +165,7 @@ class EventBus:
             else:
                 return handler(event)
         except Exception as e:
-            self.logger.error(f"事件處理器錯誤: {e}")
+            self.logger.error(f"Event handler error: {e}")
             raise
     
     async def _call_middleware(self, middleware: Callable, event: Event) -> Optional[Event]:
@@ -176,7 +176,7 @@ class EventBus:
             else:
                 return middleware(event)
         except Exception as e:
-            self.logger.error(f"中間件錯誤: {e}")
+            self.logger.error(f"Middleware error: {e}")
             raise
     
     def list_subscribers(self) -> Dict[str, int]:
@@ -187,10 +187,10 @@ class EventBus:
         """Clear subscribers for a specific event type or all events."""
         if event_type:
             self._handlers.pop(event_type, None)
-            self.logger.debug(f"清除事件訂閱者: {event_type}")
+            self.logger.debug(f"Cleared subscribers for event: {event_type}")
         else:
             self._handlers.clear()
-            self.logger.debug("清除所有事件訂閱者")
+            self.logger.debug("Cleared all event subscribers")
 
 
 # Global event bus instance

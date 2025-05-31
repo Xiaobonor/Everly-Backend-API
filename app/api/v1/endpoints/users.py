@@ -28,17 +28,17 @@ async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
     Returns:
         User information.
     """
-    logger.info(f"API 請求 GET /users/me - 用戶ID: {current_user.id}")
-    logger.debug(f"獲取用戶信息 - 請求開始處理")
+    logger.info(f"API request GET /users/me - User ID: {current_user.id}")
+    logger.debug(f"Getting user information - Request processing started")
     
-    # 將 User 實例轉換為字典，確保 id 被轉換為字符串
+    # Convert User instance to dict, ensuring id is a string
     preferences_list = []
     if current_user.preferences:
-        logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
+        logger.debug(f"Processing user preferences - {len(current_user.preferences)} items")
         for key, value in current_user.preferences.items():
             # 排除大型的 profileImage base64 數據，避免響應過大
             if key == "profileImage":
-                logger.debug(f"跳過大型 profileImage 數據 - 數據大小: {len(str(value)) if value else 0} 字符")
+                logger.debug(f"Skipping large profileImage data - size: {len(str(value)) if value else 0} characters")
                 continue
                 
             # 如果值是二進制數據，轉換為Base64字符串
@@ -56,8 +56,8 @@ async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
         "preferences": preferences_list
     }
             
-    logger.debug(f"用戶信息獲取成功 - 響應準備完成")
-    logger.info(f"API 請求 GET /users/me 完成 - 用戶ID: {current_user.id}")
+    logger.debug(f"User information retrieval successful - Response ready")
+    logger.info(f"API request GET /users/me completed - User ID: {current_user.id}")
     
     return {
         "status": "success",
@@ -80,22 +80,22 @@ async def update_user_me(
     Returns:
         Updated user information.
     """
-    logger.info(f"API 請求 PUT /users/me - 用戶ID: {current_user.id}")
-    logger.debug(f"更新用戶信息 - 請求數據: {user_update.dict(exclude_unset=True)}")
+    logger.info(f"API request PUT /users/me - User ID: {current_user.id}")
+    logger.debug(f"Updating user information - Request data: {user_update.dict(exclude_unset=True)}")
     
     try:
         update_data = user_update.dict(exclude_unset=True)
         
-        logger.debug(f"更新用戶字段: {', '.join(update_data.keys())}")
+        logger.debug(f"Updating user fields: {', '.join(update_data.keys())}")
         for field, value in update_data.items():
             setattr(current_user, field, value)
             
         current_user.save()
-        logger.debug(f"用戶信息已保存到數據庫")
+        logger.debug(f"User information saved to the database")
         
         preferences_list = []
         if current_user.preferences:
-            logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
+            logger.debug(f"Processing user preferences - {len(current_user.preferences)} items")
             for key, value in current_user.preferences.items():
                 # 排除大型的 profileImage base64 數據，避免響應過大
                 if key == "profileImage":
@@ -117,8 +117,8 @@ async def update_user_me(
             "preferences": preferences_list
         }
         
-        logger.debug(f"用戶信息更新成功 - 響應準備完成")
-        logger.info(f"API 請求 PUT /users/me 完成 - 用戶ID: {current_user.id}")
+        logger.debug(f"User information update successful - Response ready")
+        logger.info(f"API request PUT /users/me completed - User ID: {current_user.id}")
                 
         return {
             "status": "success",
@@ -126,7 +126,7 @@ async def update_user_me(
             "message": "User information updated successfully"
         }
     except Exception as e:
-        logger.error(f"更新用戶信息時發生錯誤 - 用戶ID: {current_user.id}, 錯誤: {str(e)}")
+        logger.error(f"Error updating user information - User ID: {current_user.id}, Error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while updating user information"
@@ -148,19 +148,19 @@ async def update_profile_picture(
     Returns:
         Success response with the new profile picture URL.
     """
-    logger.info(f"API 請求 PUT /users/me/profile-picture - 用戶ID: {current_user.id}")
-    logger.debug(f"更新用戶頭像 - 文件名: {file.filename}, 文件大小: {file.size}, 內容類型: {file.content_type}")
+    logger.info(f"API request PUT /users/me/profile-picture - User ID: {current_user.id}")
+    logger.debug(f"Updating profile picture - Filename: {file.filename}, Size: {file.size}, Content type: {file.content_type}")
     
     try:
-        # 上傳圖片並獲取URL
-        logger.debug(f"開始上傳頭像圖片到存儲服務")
+        # Upload image and get URL
+        logger.debug(f"Starting upload of profile picture to storage service")
         image_url = await upload_profile_image(file)
-        logger.debug(f"圖片上傳成功 - URL: {image_url}")
+        logger.debug(f"Image uploaded successfully - URL: {image_url}")
         
         # 更新用戶資料
         current_user.profile_picture = image_url
         current_user.save()
-        logger.debug(f"用戶頭像URL已更新並保存到數據庫")
+        logger.debug(f"User profile picture URL updated and saved to database")
         
         preferences_list = []
         if current_user.preferences:
@@ -186,8 +186,8 @@ async def update_profile_picture(
             "preferences": preferences_list
         }
         
-        logger.debug(f"用戶頭像更新成功 - 響應準備完成")
-        logger.info(f"API 請求 PUT /users/me/profile-picture 完成 - 用戶ID: {current_user.id}")
+        logger.debug(f"User profile picture update successful - Response ready")
+        logger.info(f"API request PUT /users/me/profile-picture completed - User ID: {current_user.id}")
         
         return {
             "status": "success",
@@ -195,7 +195,7 @@ async def update_profile_picture(
             "message": "Profile picture updated successfully"
         }
     except Exception as e:
-        logger.error(f"更新用戶頭像時發生錯誤 - 用戶ID: {current_user.id}, 錯誤: {str(e)}")
+        logger.error(f"Error updating profile picture - User ID: {current_user.id}, Error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while updating profile picture"
@@ -213,12 +213,12 @@ async def get_user_preferences(current_user: User = Depends(get_current_user)) -
     Returns:
         List of user preferences.
     """
-    logger.info(f"API 請求 GET /users/me/preferences - 用戶ID: {current_user.id}")
-    logger.debug(f"獲取用戶偏好設定 - 請求開始處理")
+    logger.info(f"API request GET /users/me/preferences - User ID: {current_user.id}")
+    logger.debug(f"Getting user preferences - Request processing started")
     
     preferences_list = []
     if current_user.preferences:
-        logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
+        logger.debug(f"Processing user preferences - {len(current_user.preferences)} items")
         for key, value in current_user.preferences.items():
             # 排除大型的 profileImage base64 數據，避免響應過大
             if key == "profileImage":
@@ -230,8 +230,8 @@ async def get_user_preferences(current_user: User = Depends(get_current_user)) -
                 value = base64.b64encode(value).decode('ascii')
             preferences_list.append({"key": key, "value": value})
     
-    logger.debug(f"用戶偏好設定獲取成功 - 響應準備完成")
-    logger.info(f"API 請求 GET /users/me/preferences 完成 - 用戶ID: {current_user.id}")
+    logger.debug(f"User preferences retrieval successful - Response ready")
+    logger.info(f"API request GET /users/me/preferences completed - User ID: {current_user.id}")
             
     return {
         "status": "success",
@@ -254,35 +254,35 @@ async def update_user_preferences(
     Returns:
         Updated list of user preferences.
     """
-    logger.info(f"API 請求 PUT /users/me/preferences - 用戶ID: {current_user.id}")
-    
-    # 檢查有多少字段需要更新
+    logger.info(f"API request PUT /users/me/preferences - User ID: {current_user.id}")
+
+    # Determine how many fields need to be updated
     update_fields = [field for field, value in preferences.dict(exclude_unset=True, exclude_none=True).items() if value is not None]
-    logger.debug(f"更新用戶偏好設定 - 請求包含 {len(update_fields)} 個更新項: {', '.join(update_fields)}")
+    logger.debug(f"Updating user preferences - Request includes {len(update_fields)} updates: {', '.join(update_fields)}")
     
     try:
         # 確保用戶有偏好字典
         if not current_user.preferences:
-            logger.debug("用戶無現有偏好設定 - 創建新偏好字典")
+        logger.debug("User has no existing preferences - creating new preferences dictionary")
             current_user.preferences = {}
             
         # 將偏好設定轉換為字典格式
         preferences_dict = preferences.to_dict()
-        logger.debug(f"轉換的偏好設定字典: {list(preferences_dict.keys())}")
+        logger.debug(f"Converted preferences dict keys: {list(preferences_dict.keys())}")
         
         # 更新用戶偏好
         for key, value in preferences_dict.items():
-            logger.debug(f"更新偏好設定: {key}")
+            logger.debug(f"Updating preference: {key}")
             current_user.preferences[key] = value
             
         # 保存到數據庫
         current_user.save()
-        logger.debug(f"用戶偏好設定已保存到數據庫")
+        logger.debug(f"User preferences saved to the database")
         
         # 準備響應數據
         preferences_list = []
         if current_user.preferences:
-            logger.debug(f"處理用戶偏好設定響應 - 共 {len(current_user.preferences)} 項")
+        logger.debug(f"Processing user preferences response - {len(current_user.preferences)} items")
             for key, value in current_user.preferences.items():
                 # 排除大型的 profileImage base64 數據，避免響應過大
                 if key == "profileImage":
@@ -294,8 +294,8 @@ async def update_user_preferences(
                     value = base64.b64encode(value).decode('ascii')
                 preferences_list.append({"key": key, "value": value})
         
-        logger.debug(f"用戶偏好設定更新成功 - 響應準備完成")
-        logger.info(f"API 請求 PUT /users/me/preferences 完成 - 用戶ID: {current_user.id}")
+        logger.debug(f"User preferences update successful - Response ready")
+        logger.info(f"API request PUT /users/me/preferences completed - User ID: {current_user.id}")
         
         return {
             "status": "success",
@@ -303,14 +303,15 @@ async def update_user_preferences(
             "message": "User preferences updated successfully"
         }
     except UnicodeDecodeError as e:
-        logger.error(f"用戶偏好設定更新時發生Unicode解碼錯誤 - 用戶ID: {current_user.id}, 錯誤: {str(e)}")
+    except UnicodeDecodeError as e:
+        logger.error(f"Unicode decoding error during user preferences update - User ID: {current_user.id}, Error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="二進制數據必須使用Base64編碼。請將二進制數據轉換為Base64字符串後再提交。"
+            detail="Binary data must be Base64-encoded. Please convert binary data to a Base64 string before submitting."
         )
     except Exception as e:
-        logger.error(f"用戶偏好設定更新時發生錯誤 - 用戶ID: {current_user.id}, 錯誤: {str(e)}")
+        logger.error(f"Error updating user preferences - User ID: {current_user.id}, Error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="更新用戶偏好設定時發生錯誤"
+            detail="An error occurred while updating user preferences"
         )

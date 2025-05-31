@@ -21,17 +21,17 @@ async def upload_media(
     current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
-    上傳媒體文件（圖片、音頻或視頻）以在日記條目中使用。
-    
+    Upload media files (images, audio, or video) for use in diary entries.
+
     Args:
-        file: 媒體文件。
-        current_user: 當前認證用戶。
-        
+        file: The media file.
+        current_user: The currently authenticated user.
+
     Returns:
-        上傳的文件信息。
+        Uploaded file information.
     """
-    logger.info(f"API 請求 POST /media/upload - 用戶ID: {current_user.id}")
-    logger.debug(f"上傳媒體文件 - 文件名: {file.filename}, 文件大小: {file.size}, 內容類型: {file.content_type}")
+    logger.info(f"API request POST /media/upload - User ID: {current_user.id}")
+    logger.debug(f"Uploading media file - Filename: {file.filename}, Size: {file.size}, Content type: {file.content_type}")
     
     try:
         # 上傳媒體文件
@@ -46,22 +46,22 @@ async def upload_media(
             "message": "File uploaded successfully"
         }
     except UnicodeDecodeError as e:
-        # 特別處理Unicode編碼錯誤
-        error_details = f"Unicode 解碼錯誤: {str(e)}"
-        logger.error(f"{error_details} - 用戶ID: {current_user.id}, 文件名: {file.filename}", exc_info=True)
+        # Handle Unicode decoding errors specifically
+        error_details = f"Unicode decode error: {str(e)}"
+        logger.error(f"{error_details} - User ID: {current_user.id}, Filename: {file.filename}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File encoding error. Make sure you are uploading a valid binary file."
         )
     except HTTPException:
-        # 直接重新拋出HTTP異常
-        logger.warning(f"上傳媒體文件時發生HTTP異常 - 用戶ID: {current_user.id}, 文件名: {file.filename}")
+        # Re-raise HTTP exceptions directly
+        logger.warning(f"HTTP exception occurred during file upload - User ID: {current_user.id}, Filename: {file.filename}")
         raise
     except Exception as e:
-        # 記錄詳細的異常信息
+        # Log detailed exception information
         error_type = type(e).__name__
         error_details = str(e)
-        logger.error(f"上傳媒體文件時發生錯誤 - 錯誤類型: {error_type}, 錯誤信息: {error_details}, 用戶ID: {current_user.id}, 文件名: {file.filename}", exc_info=True)
+        logger.error(f"Error occurred while uploading media file - Error type: {error_type}, Error detail: {error_details}, User ID: {current_user.id}, Filename: {file.filename}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while uploading the file"

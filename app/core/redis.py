@@ -38,14 +38,14 @@ async def connect_to_redis() -> None:
     try:
         logger.info("Connecting to Redis...")
         
-        # 构建 Redis URL，并添加密码认证
+        # Build Redis URL and add password authentication
         redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
         connection_kwargs: Dict[str, any] = {
             "encoding": "utf-8",
             "decode_responses": True
         }
         
-        # 如果有密码，则添加密码认证
+        # Add password authentication if password is provided
         if settings.REDIS_PASSWORD:
             connection_kwargs["password"] = settings.REDIS_PASSWORD
             logger.info("Redis password authentication enabled")

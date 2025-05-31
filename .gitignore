@@ -141,4 +141,6 @@ data/db/
 
 # Redis dump file
 dump.rdb 
+# Ignore application log directory
+app/logs/
 test_config.json
