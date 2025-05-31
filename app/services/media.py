@@ -10,6 +10,8 @@ from fastapi import UploadFile, HTTPException, status
 import aiofiles
 from pathlib import Path
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 # 設定上傳目錄
@@ -20,6 +22,9 @@ MEDIA_UPLOAD_DIR = UPLOAD_DIR / "media"
 # 文件大小限制
 MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 MAX_MEDIA_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
+# 基礎 URL 配置
+BASE_URL = settings.BASE_URL
 
 
 async def ensure_upload_dirs():
@@ -37,7 +42,7 @@ async def upload_profile_image(file: UploadFile) -> str:
         file: The uploaded file.
         
     Returns:
-        URL to the uploaded file.
+        Complete URL to the uploaded file.
     """
     await ensure_upload_dirs()
     
@@ -71,8 +76,8 @@ async def upload_profile_image(file: UploadFile) -> str:
         async with aiofiles.open(file_path, "wb") as out_file:
             await out_file.write(content)
         
-        # 返回URL (相對於API根目錄)
-        return f"/static/uploads/profiles/{unique_filename}"
+        # 返回完整 URL
+        return f"{BASE_URL}/static/uploads/profiles/{unique_filename}"
     except HTTPException:
         # 重新拋出HTTP異常
         raise
@@ -146,7 +151,7 @@ async def upload_media_file(file: UploadFile) -> Dict:
         
         # 返回文件信息
         return {
-            "url": f"/static/uploads/media/{unique_filename}",
+            "url": f"{BASE_URL}/static/uploads/media/{unique_filename}",
             "type": media_type,
             "size": file_size,
             "filename": unique_filename

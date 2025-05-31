@@ -1,20 +1,24 @@
-"""User endpoints."""
+"""User API routes."""
 
 import logging
-import json
-import base64
-from typing import Any, Dict, List
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
-from fastapi.encoders import jsonable_encoder
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 
-from app.schemas.user import UserResponse, UserUpdate, UserPreferenceUpdate, PreferenceModel, ApiResponse
-from app.services.auth import get_current_user
-from app.services.media import upload_profile_image
+from app.modules.user.services import UserService
+from app.modules.user.config import UserConfig
+from app.schemas.user import UserUpdate, UserPreferenceUpdate, ApiResponse
 from app.db.models.user import User
+
+# Import auth dependency from auth module
+from app.modules.auth.api.auth_routes import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Initialize user service with config
+user_config = UserConfig.from_env()
+user_service = UserService(user_config)
 
 
 @router.get("/me", response_model=ApiResponse)
@@ -31,31 +35,8 @@ async def get_user_me(current_user: User = Depends(get_current_user)) -> Any:
     logger.info(f"API 請求 GET /users/me - 用戶ID: {current_user.id}")
     logger.debug(f"獲取用戶信息 - 請求開始處理")
     
-    # 將 User 實例轉換為字典，確保 id 被轉換為字符串
-    preferences_list = []
-    if current_user.preferences:
-        logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
-        for key, value in current_user.preferences.items():
-            # 排除大型的 profileImage base64 數據，避免響應過大
-            if key == "profileImage":
-                logger.debug(f"跳過大型 profileImage 數據 - 數據大小: {len(str(value)) if value else 0} 字符")
-                continue
-                
-            # 如果值是二進制數據，轉換為Base64字符串
-            if isinstance(value, bytes):
-                value = base64.b64encode(value).decode('ascii')
-            preferences_list.append({"key": key, "value": value})
+    user_data = user_service.format_user_data(current_user)
     
-    user_data = {
-        "id": str(current_user.id),
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "profile_picture": current_user.profile_picture,
-        "is_active": current_user.is_active,
-        "created_at": current_user.created_at,
-        "preferences": preferences_list
-    }
-            
     logger.debug(f"用戶信息獲取成功 - 響應準備完成")
     logger.info(f"API 請求 GET /users/me 完成 - 用戶ID: {current_user.id}")
     
@@ -93,29 +74,7 @@ async def update_user_me(
         current_user.save()
         logger.debug(f"用戶信息已保存到數據庫")
         
-        preferences_list = []
-        if current_user.preferences:
-            logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
-            for key, value in current_user.preferences.items():
-                # 排除大型的 profileImage base64 數據，避免響應過大
-                if key == "profileImage":
-                    logger.debug(f"跳過大型 profileImage 數據 - 數據大小: {len(str(value)) if value else 0} 字符")
-                    continue
-                    
-                # 如果值是二進制數據，轉換為Base64字符串
-                if isinstance(value, bytes):
-                    value = base64.b64encode(value).decode('ascii')
-                preferences_list.append({"key": key, "value": value})
-        
-        user_data = {
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "profile_picture": current_user.profile_picture,
-            "is_active": current_user.is_active,
-            "created_at": current_user.created_at,
-            "preferences": preferences_list
-        }
+        user_data = user_service.format_user_data(current_user)
         
         logger.debug(f"用戶信息更新成功 - 響應準備完成")
         logger.info(f"API 請求 PUT /users/me 完成 - 用戶ID: {current_user.id}")
@@ -152,39 +111,17 @@ async def update_profile_picture(
     logger.debug(f"更新用戶頭像 - 文件名: {file.filename}, 文件大小: {file.size}, 內容類型: {file.content_type}")
     
     try:
-        # 上傳圖片並獲取URL
+        # Upload image and get URL
         logger.debug(f"開始上傳頭像圖片到存儲服務")
-        image_url = await upload_profile_image(file)
+        image_url = await user_service.upload_profile_image(file)
         logger.debug(f"圖片上傳成功 - URL: {image_url}")
         
-        # 更新用戶資料
+        # Update user profile
         current_user.profile_picture = image_url
         current_user.save()
         logger.debug(f"用戶頭像URL已更新並保存到數據庫")
         
-        preferences_list = []
-        if current_user.preferences:
-            logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
-            for key, value in current_user.preferences.items():
-                # 排除大型的 profileImage base64 數據，避免響應過大
-                if key == "profileImage":
-                    logger.debug(f"跳過大型 profileImage 數據 - 數據大小: {len(str(value)) if value else 0} 字符")
-                    continue
-                    
-                # 如果值是二進制數據，轉換為Base64字符串
-                if isinstance(value, bytes):
-                    value = base64.b64encode(value).decode('ascii')
-                preferences_list.append({"key": key, "value": value})
-                
-        user_data = {
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "full_name": current_user.full_name,
-            "profile_picture": current_user.profile_picture,
-            "is_active": current_user.is_active,
-            "created_at": current_user.created_at,
-            "preferences": preferences_list
-        }
+        user_data = user_service.format_user_data(current_user)
         
         logger.debug(f"用戶頭像更新成功 - 響應準備完成")
         logger.info(f"API 請求 PUT /users/me/profile-picture 完成 - 用戶ID: {current_user.id}")
@@ -216,19 +153,8 @@ async def get_user_preferences(current_user: User = Depends(get_current_user)) -
     logger.info(f"API 請求 GET /users/me/preferences - 用戶ID: {current_user.id}")
     logger.debug(f"獲取用戶偏好設定 - 請求開始處理")
     
-    preferences_list = []
-    if current_user.preferences:
-        logger.debug(f"處理用戶偏好設定 - 共 {len(current_user.preferences)} 項")
-        for key, value in current_user.preferences.items():
-            # 排除大型的 profileImage base64 數據，避免響應過大
-            if key == "profileImage":
-                logger.debug(f"跳過大型 profileImage 數據 - 數據大小: {len(str(value)) if value else 0} 字符")
-                continue
-                
-            # 如果值是二進制數據，轉換為Base64字符串
-            if isinstance(value, bytes):
-                value = base64.b64encode(value).decode('ascii')
-            preferences_list.append({"key": key, "value": value})
+    user_data = user_service.format_user_data(current_user)
+    preferences_list = user_data.get("preferences", [])
     
     logger.debug(f"用戶偏好設定獲取成功 - 響應準備完成")
     logger.info(f"API 請求 GET /users/me/preferences 完成 - 用戶ID: {current_user.id}")
@@ -256,43 +182,21 @@ async def update_user_preferences(
     """
     logger.info(f"API 請求 PUT /users/me/preferences - 用戶ID: {current_user.id}")
     
-    # 檢查有多少字段需要更新
+    # Check how many fields need to be updated
     update_fields = [field for field, value in preferences.dict(exclude_unset=True, exclude_none=True).items() if value is not None]
     logger.debug(f"更新用戶偏好設定 - 請求包含 {len(update_fields)} 個更新項: {', '.join(update_fields)}")
     
     try:
-        # 確保用戶有偏好字典
-        if not current_user.preferences:
-            logger.debug("用戶無現有偏好設定 - 創建新偏好字典")
-            current_user.preferences = {}
-            
-        # 將偏好設定轉換為字典格式
+        # Convert preferences to dictionary format
         preferences_dict = preferences.to_dict()
         logger.debug(f"轉換的偏好設定字典: {list(preferences_dict.keys())}")
         
-        # 更新用戶偏好
-        for key, value in preferences_dict.items():
-            logger.debug(f"更新偏好設定: {key}")
-            current_user.preferences[key] = value
-            
-        # 保存到數據庫
-        current_user.save()
-        logger.debug(f"用戶偏好設定已保存到數據庫")
+        # Update user preferences using service
+        await user_service.update_user_preferences(current_user, preferences_dict)
         
-        # 準備響應數據
-        preferences_list = []
-        if current_user.preferences:
-            logger.debug(f"處理用戶偏好設定響應 - 共 {len(current_user.preferences)} 項")
-            for key, value in current_user.preferences.items():
-                # 排除大型的 profileImage base64 數據，避免響應過大
-                if key == "profileImage":
-                    logger.debug(f"跳過大型 profileImage 數據 - 數據大小: {len(str(value)) if value else 0} 字符")
-                    continue
-                    
-                # 如果值是二進制數據，轉換為Base64字符串
-                if isinstance(value, bytes):
-                    value = base64.b64encode(value).decode('ascii')
-                preferences_list.append({"key": key, "value": value})
+        # Prepare response data
+        user_data = user_service.format_user_data(current_user)
+        preferences_list = user_data.get("preferences", [])
         
         logger.debug(f"用戶偏好設定更新成功 - 響應準備完成")
         logger.info(f"API 請求 PUT /users/me/preferences 完成 - 用戶ID: {current_user.id}")
@@ -313,4 +217,4 @@ async def update_user_preferences(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="更新用戶偏好設定時發生錯誤"
-        )
+        ) 

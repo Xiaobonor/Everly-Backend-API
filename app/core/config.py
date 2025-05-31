@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "Everly API")
     ENV: str = os.getenv("ENV", "development")
+    BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
 
     # MongoDB Settings
     MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017/everly")

@@ -191,6 +191,8 @@ async def get_current_user(
     """
     try:
         token = credentials.credentials
+        logger.debug(f"Decoding JWT token for authentication")
+        
         payload = jwt.decode(
             token,
             settings.JWT_SECRET,
@@ -199,14 +201,46 @@ async def get_current_user(
         
         user_id = payload.get("sub")
         if user_id is None:
+            logger.error("No user ID found in JWT token")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        user = User.objects(id=user_id).first()
+        logger.debug(f"Looking up user with ID: {user_id}")
+        
+        # 嘗試不同方式查找用戶，處理 ObjectId 轉換問題
+        user = None
+        try:
+            # 方法1：直接用字符串 ID 查詢
+            user = User.objects(id=user_id).first()
+        except Exception as e:
+            logger.debug(f"Direct string ID lookup failed: {e}")
+            
+        if not user:
+            try:
+                # 方法2：如果是 ObjectId 字符串，嘗試轉換
+                from bson import ObjectId
+                if ObjectId.is_valid(user_id):
+                    object_id = ObjectId(user_id)
+                    user = User.objects(id=object_id).first()
+                    logger.debug(f"Found user using ObjectId conversion")
+            except Exception as e:
+                logger.debug(f"ObjectId conversion failed: {e}")
+                
+        if not user:
+            try:
+                # 方法3：嘗試用 email 查詢（fallback）
+                email = payload.get("email")
+                if email:
+                    user = User.objects(email=email).first()
+                    logger.debug(f"Found user using email fallback: {email}")
+            except Exception as e:
+                logger.debug(f"Email fallback failed: {e}")
+        
         if user is None:
+            logger.error(f"User not found with ID: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
@@ -214,17 +248,27 @@ async def get_current_user(
             )
             
         if not user.is_active:
+            logger.error(f"User {user_id} is inactive")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Inactive user",
                 headers={"WWW-Authenticate": "Bearer"}
             )
             
+        logger.debug(f"Successfully authenticated user: {user.id}")
         return user
+        
     except jwt.PyJWTError as e:
         logger.error(f"JWT error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    except Exception as e:
+        logger.error(f"Unexpected authentication error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
             headers={"WWW-Authenticate": "Bearer"}
         ) 

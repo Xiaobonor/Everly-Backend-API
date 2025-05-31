@@ -10,11 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.v1 import api_router
 from app.core.config import settings
 from app.db.connection import connect_to_mongo, disconnect_from_mongo
 from app.core.redis import connect_to_redis, disconnect_from_redis
 from app.core.logging import init_logging
+
+# Import modular system
+from app.modules import register_all_modules, module_manager
 
 # 初始化日誌系統
 init_logging()
@@ -139,6 +141,31 @@ async def startup_event() -> None:
         logger.warning(f"無法連接到 Redis - 錯誤: {str(e)}")
         logger.warning("應用程序將在沒有 Redis 的情況下繼續。某些功能可能會受限。")
     
+    # Register and initialize all modules
+    try:
+        logger.info("開始註冊和初始化模塊...")
+        register_all_modules()
+        
+        # Get database and redis connections
+        from app.db.connection import get_database
+        from app.core.redis import get_redis
+        
+        db = get_database()
+        redis = get_redis()
+        
+        # Initialize all modules
+        await module_manager.initialize_all(db, redis)
+        
+        # Create and include module routers
+        api_router = module_manager.create_main_router()
+        app.include_router(api_router, prefix=f"/api/{settings.API_VERSION}")
+        
+        logger.info("所有模塊註冊和初始化完成")
+        
+    except Exception as e:
+        logger.error(f"模塊初始化失敗: {str(e)}")
+        raise
+    
     logger.info("Everly 後端成功啟動")
 
 
@@ -146,6 +173,13 @@ async def startup_event() -> None:
 async def shutdown_event() -> None:
     """Execute shutdown tasks."""
     logger.info("正在關閉 Everly 後端...")
+    
+    # Cleanup all modules
+    try:
+        await module_manager.cleanup_all()
+        logger.info("所有模塊清理完成")
+    except Exception as e:
+        logger.error(f"模塊清理時發生錯誤: {str(e)}")
     
     # Disconnect from Redis
     try:
@@ -195,9 +229,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # Mount static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Include API router
-app.include_router(api_router, prefix=f"/api/{settings.API_VERSION}")
-
 
 @app.get("/")
 async def root() -> Any:
@@ -214,9 +245,14 @@ async def root() -> Any:
 async def health_check() -> Any:
     """Health check endpoint."""
     logger.debug("健康檢查請求")
+    
+    # Get module health status
+    module_health = await module_manager.health_check_all()
+    
     return {
         "status": "success",
         "message": "Healthy",
         "service": settings.PROJECT_NAME,
-        "environment": settings.ENV
+        "environment": settings.ENV,
+        "modules": module_health
     }
